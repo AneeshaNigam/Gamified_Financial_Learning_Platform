@@ -25,7 +25,12 @@ export const getProgressForUser = async (userId: string) => {
 export const buildAchievementStateFromDB = async () => {
   const achievements = await AchievementModel.find({ isActive: true }).lean();
   return achievements.map((achievement) => ({
-    ...achievement,
+    id: achievement.achievementId,
+    name: achievement.name,
+    description: achievement.description,
+    icon: achievement.icon,
+    xpReward: achievement.xpReward,
+    total: achievement.total,
     unlocked: false,
     progress: 0
   }));

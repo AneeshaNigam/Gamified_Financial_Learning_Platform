@@ -8,6 +8,19 @@ import { achievementTemplates } from '../../data/achievements';
 
 const ensureAchievementSlots = (progress: IProgressDocument | null) => {
   if (!progress) return;
+
+  // Repair existing entries that were saved with `achievementId` instead of `id`
+  for (const achievement of progress.achievements as any[]) {
+    if (!achievement.id && achievement.achievementId) {
+      achievement.id = achievement.achievementId;
+      delete achievement.achievementId;
+    }
+  }
+
+  // Remove entries that still have no `id` (completely broken)
+  progress.achievements = progress.achievements.filter((a) => !!a.id);
+
+  // Add any missing achievement slots
   achievementTemplates.forEach((template) => {
     const exists = progress.achievements.find((a) => a.id === template.id);
     if (!exists) {
