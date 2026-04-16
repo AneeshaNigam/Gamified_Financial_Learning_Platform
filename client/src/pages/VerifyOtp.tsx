@@ -92,7 +92,7 @@ const VerifyOtp = () => {
       await verifyOtp(state.email, code, state.flow);
       toast.success(
         state.flow === "signup"
-          ? "Account created! Welcome to FinLearn!"
+          ? "Account created! Welcome to MoneyMaster!"
           : "Welcome back!"
       );
       navigate("/dashboard");

@@ -1,6 +1,6 @@
 # Frontend Contract Snapshot
 
-This document captures the data the current CoinQuest Academy frontend expects from the backend. It is derived from the React contexts (`src/contexts/*.tsx`) and key pages under `src/pages`.
+This document captures the data the current MoneyMaster frontend expects from the backend. It is derived from the React contexts (`src/contexts/*.tsx`) and key pages under `src/pages`.
 
 ## Auth (`AuthContext`)
 - User shape: `{ id, name, email, age, grade, school, level, xp, knowledgeLevel, currentStreak, longestStreak, createdAt, lastLogin }`.

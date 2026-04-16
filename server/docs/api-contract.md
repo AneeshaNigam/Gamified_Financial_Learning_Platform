@@ -1,4 +1,4 @@
-# CoinQuest Backend API
+# MoneyMaster Backend API
 
 All endpoints are prefixed with `/api`. Authentication uses JWT Bearer tokens returned by `/api/auth/login` and `/api/auth/signup`.
 

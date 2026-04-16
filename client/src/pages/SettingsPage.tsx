@@ -283,7 +283,7 @@ export default function Settings() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `finlearn-data-${Date.now()}.json`;
+    a.download = `moneymaster-data-${Date.now()}.json`;
     a.click();
     toast.success("Data exported!");
   };

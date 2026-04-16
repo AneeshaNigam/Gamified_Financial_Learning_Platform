@@ -38,7 +38,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="system" storageKey="coinquest-theme">
+    <ThemeProvider defaultTheme="system" storageKey="moneymaster-theme">
       <TooltipProvider>
         <BrowserRouter>
           <AuthProvider>
