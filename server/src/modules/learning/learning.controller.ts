@@ -10,7 +10,11 @@ import {
   getProgressForUser,
   getQuiz,
   listModulesWithProgress,
-  submitQuiz
+  submitQuiz,
+  // Dynamic lesson engine
+  getCurrentLesson,
+  submitStep,
+  completeLessonV2,
 } from './learning.service';
 
 export const getModules = asyncHandler(async (req: Request, res: Response) => {
@@ -57,3 +61,29 @@ export const getProgressController = asyncHandler(async (req: Request, res: Resp
   return sendSuccess(res, progress);
 });
 
+// ── Dynamic Lesson Engine Controllers ────────────────────────────────────────
+
+export const getCurrentLessonController = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new ApiError(401, 'Authentication required');
+  const lesson = await getCurrentLesson(req.user.id);
+  return sendSuccess(res, lesson);
+});
+
+export const submitStepController = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new ApiError(401, 'Authentication required');
+  const { lessonId, stepIndex, answer } = req.body;
+  if (!lessonId || stepIndex === undefined || !answer) {
+    throw new ApiError(400, 'lessonId, stepIndex, and answer are required');
+  }
+  const result = await submitStep(req.user.id, lessonId, Number(stepIndex), String(answer));
+  return sendSuccess(res, result);
+});
+
+export const completeLessonV2Controller = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new ApiError(401, 'Authentication required');
+  const { lessonId } = req.body;
+  if (!lessonId) throw new ApiError(400, 'lessonId is required');
+  const result = await completeLessonV2(req.user.id, String(lessonId));
+  await evaluateAchievements(req.user.id);
+  return sendSuccess(res, result, 'Lesson complete!');
+});

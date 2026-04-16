@@ -111,24 +111,42 @@ const Landing = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 text-center relative z-10">
-        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
-          <h1 className="text-5xl md:text-7xl font-bold leading-tight relative z-10">
-            Learn Money, <br />
-            <span className="text-primary">Earn Rewards,</span>
+      <section className="container mx-auto px-4 py-20 text-center relative z-10 overflow-hidden">
+        {/* Subtle floating finance icons */}
+        <div className="absolute top-8 left-8 text-5xl opacity-[0.08] animate-float pointer-events-none select-none">💰</div>
+        <div className="absolute top-16 right-12 text-4xl opacity-[0.08] animate-float pointer-events-none select-none" style={{ animationDelay: '1.1s' }}>📊</div>
+        <div className="absolute bottom-8 left-1/4 text-4xl opacity-[0.08] animate-float pointer-events-none select-none" style={{ animationDelay: '0.6s' }}>💳</div>
+        <div className="absolute bottom-12 right-1/4 text-5xl opacity-[0.08] animate-float pointer-events-none select-none" style={{ animationDelay: '1.7s' }}>🏦</div>
+        <div className="absolute top-1/2 left-4 text-3xl opacity-[0.06] animate-float pointer-events-none select-none" style={{ animationDelay: '2.2s' }}>📈</div>
+
+        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in relative z-10">
+          {/* Curiosity hook */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-semibold mb-4 animate-scale-in">
+            <span className="animate-fire">🔥</span> Most people never learn this. Those who do build wealth.
+          </div>
+
+          <h1 className="text-5xl md:text-7xl font-bold leading-tight">
+            You use money every day…
             <br />
-            Build Your Future! 🚀
+            <span style={{
+              background: 'linear-gradient(135deg, hsl(210 100% 56%), hsl(180 100% 50%))',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            }}>but do you actually understand it?</span>
           </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto relative z-10">
-            Master money management through fun, interactive lessons and challenges!
+
+          <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
+            Master money management through interactive lessons, real-world scenarios, and a rewards system that keeps you coming back.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link to="/signup">
               <Button
                 size="lg"
-                className="bg-primary hover:bg-primary/90 text-lg px-8 py-6"
+                className="bg-primary hover:bg-primary/90 text-lg px-10 py-6 shadow-lg hover:shadow-primary/40 hover:-translate-y-1 transition-all"
               >
-                Start Learning Free <ArrowRight className="ml-2" />
+                Prove You're Financially Smart → <ArrowRight className="ml-2" />
               </Button>
             </Link>
             <Button
@@ -144,7 +162,13 @@ const Landing = () => {
               See How It Works
             </Button>
           </div>
-          <div className="pt-8 text-6xl animate-bounce-in">💰🪙📈💎🏆</div>
+
+          {/* Social proof strip */}
+          <div className="flex items-center justify-center gap-6 pt-4 text-sm text-muted-foreground flex-wrap">
+            <span>✅ Free to start</span>
+            <span>✅ No credit card</span>
+            <span>✅ 10K+ learners</span>
+          </div>
         </div>
       </section>
 

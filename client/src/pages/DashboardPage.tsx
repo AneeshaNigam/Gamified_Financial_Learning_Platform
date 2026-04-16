@@ -1,5 +1,6 @@
 /** @format */
 
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWallet } from "@/contexts/WalletContext";
 import { useProgress } from "@/contexts/ProgressContext";
@@ -13,6 +14,7 @@ import {
   Trophy,
   Swords,
   Calculator,
+  Sparkles,
 } from "lucide-react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
@@ -20,20 +22,58 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { wallet, transactions } = useWallet();
   const { progress } = useProgress();
+  const [showCoinsworth, setShowCoinsworth] = useState(true);
 
   const completionPercent = (progress.completedLessons.length / 15) * 100; // 5 modules x 3 lessons
+  const displayXp = (user?.xp ?? 0) > 0 ? user?.xp : null;
+  const streak = user?.currentStreak ?? 0;
+
+  // Dynamic Coinsworth greeting
+  const coinsworthGreeting = streak >= 5
+    ? `${streak}-day streak! You're absolutely crushing it! 🔥`
+    : streak >= 2
+    ? `Nice — ${streak} days in a row! Keep the momentum! 💪`
+    : progress.completedLessons.length === 0
+    ? "Welcome! Your financial journey starts with one lesson. Let's go! 🚀"
+    : "Good to see you back! Every session makes you smarter with money. 🧠";
 
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
-        {/* Welcome Message */}
-        <div>
-          <h1 className="text-3xl font-bold mb-2">
-            Welcome back, {user?.name}! 👋
-          </h1>
-          <p className="text-muted-foreground">
-            Keep up the streak! You're on day {user?.currentStreak} 🔥
-          </p>
+        {/* Welcome + Coinsworth */}
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">
+              Welcome back, {user?.name}! 👋
+            </h1>
+            {streak >= 2 ? (
+              <p className="text-muted-foreground flex items-center gap-2">
+                <span className="streak-badge animate-fire">🔥 {streak} Day Streak!</span>
+                <span>Keep it going!</span>
+              </p>
+            ) : (
+              <p className="text-muted-foreground">
+                Ready to learn something new today?
+              </p>
+            )}
+          </div>
+
+          {/* Coinsworth bubble */}
+          {showCoinsworth && (
+            <div className="flex flex-col items-end gap-1">
+              <div className="coinsworth-bubble" style={{ maxWidth: 240 }}>
+                <button
+                  className="absolute top-1 right-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowCoinsworth(false)}
+                >✕</button>
+                <p>{coinsworthGreeting}</p>
+              </div>
+              <span className="text-3xl animate-coinsworth-bounce cursor-pointer" onClick={() => setShowCoinsworth((s) => !s)}>🪙</span>
+            </div>
+          )}
+          {!showCoinsworth && (
+            <button className="text-3xl hover:scale-110 transition-transform" onClick={() => setShowCoinsworth(true)} title="Coinsworth says hi!">🪙</button>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -41,11 +81,15 @@ const Dashboard = () => {
           <Card className="p-6 hover-lift glass-light">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-muted-foreground">Total XP</span>
-              <Trophy className="h-5 w-5 text-primary" />
+              <Sparkles className="h-5 w-5 text-primary animate-pulse-soft" />
             </div>
-            <p className="text-3xl font-bold">{user?.xp}</p>
+            {displayXp !== null ? (
+              <p className="text-3xl font-bold text-primary">{displayXp}</p>
+            ) : (
+              <p className="text-lg font-semibold text-muted-foreground">Start earning!</p>
+            )}
             <p className="text-xs text-muted-foreground mt-1">
-              Level {user?.level}
+              Level {user?.level ?? 1}
             </p>
           </Card>
 
@@ -82,11 +126,11 @@ const Dashboard = () => {
               <span className="text-sm text-muted-foreground">
                 Login Streak
               </span>
-              <span className="text-2xl">🔥</span>
+              <span className={`text-2xl ${streak >= 3 ? "animate-fire" : ""}`}>🔥</span>
             </div>
-            <p className="text-3xl font-bold">{user?.currentStreak}</p>
+            <p className={`text-3xl font-bold ${streak >= 3 ? "text-orange-500" : ""}`}>{streak}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Best: {user?.longestStreak} days
+              Best: {user?.longestStreak ?? 0} days
             </p>
           </Card>
         </div>
