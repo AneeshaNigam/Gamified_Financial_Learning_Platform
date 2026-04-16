@@ -1,493 +1,522 @@
 /** @format */
 
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useProgress } from "@/contexts/ProgressContext";
+/**
+ * LessonPage — Dynamic backend-driven lesson engine
+ *
+ * Flow:
+ *   1. Fetch current lesson from GET /api/learning/current
+ *   2. Render steps one-by-one
+ *      - "info" steps: read content, press Continue (+5 XP)
+ *      - "mcq"  steps: answer question → POST /api/learning/submit → show feedback
+ *   3. After last step: POST /api/learning/complete → auto-load next lesson
+ *
+ * No hardcoded lesson data remains.
+ */
+
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { X, ArrowRight, ArrowLeft, Sparkles, CheckCircle2 } from "lucide-react";
+import { X, ArrowRight, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import api from "@/services/api";
 
-// Sample lesson content for Module 1, Lesson 1
-const lessonContent: Record<string, any> = {
-  "1.1": {
-    title: "What is Money?",
-    slides: [
-      {
-        type: "intro",
-        content: {
-          image: "🪙",
-          text: "Hi! I'm Coinsworth 🪙. Let me tell you about MONEY!",
-        },
-      },
-      {
-        type: "content",
-        content: {
-          image: "💱",
-          text: "Money is something we use to buy things we need and want. People trade money for toys, food, clothes, and more!",
-        },
-      },
-      {
-        type: "question",
-        content: {
-          question: "What can you buy with money?",
-          options: [
-            { id: "a", text: "🍎 Apple", correct: true },
-            { id: "b", text: "☁️ Cloud", correct: false },
-            { id: "c", text: "🎮 Video Game", correct: true },
-          ],
-          multiSelect: true,
-        },
-      },
-      {
-        type: "content",
-        content: {
-          image: "🏺",
-          text: "Long ago, people traded shells, beads, and stones! Then they invented coins and paper money. Now we also have digital money!",
-        },
-      },
-      {
-        type: "content",
-        content: {
-          image: "💳",
-          text: "Money comes in different forms: coins, notes, credit cards, and even digital payments on your phone!",
-        },
-      },
-      {
-        type: "question",
-        content: {
-          question: "Which of these is a type of money?",
-          options: [
-            { id: "a", text: "Coins", correct: true },
-            { id: "b", text: "Rocks", correct: false },
-            { id: "c", text: "Credit Card", correct: true },
-            { id: "d", text: "Leaves", correct: false },
-          ],
-          multiSelect: true,
-        },
-      },
-      {
-        type: "story",
-        content: {
-          image: "🚲",
-          story:
-            "Raj wanted a bicycle. It cost ₹2000. He saved ₹200 every month from his pocket money. After 10 months, he had enough!",
-          lesson: "Saving regularly helps you buy what you want!",
-        },
-      },
-      {
-        type: "completion",
-        content: {
-          message: "🎉 Lesson Complete!",
-          xp: 50,
-          badge: null,
-        },
-      },
-    ],
-  },
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface InfoStep {
+  type: "info";
+  content: string;
+  emoji?: string;
+  xp: number;
+}
+
+interface McqOption {
+  id: string;
+  text: string;
+}
+
+interface McqStep {
+  type: "mcq";
+  question: string;
+  options: McqOption[];
+  xp: number;
+}
+
+type LessonStep = InfoStep | McqStep;
+
+interface LessonData {
+  lessonId: string;
+  moduleId: number;
+  lessonKey: string;
+  title: string;
+  order: number;
+  totalLessons: number;
+  steps: LessonStep[];
+  xpReward: number;
+  isCompleted: boolean;
+  allDone: boolean;
+}
+
+interface SubmitResponse {
+  isCorrect: boolean;
+  correctAnswer: string;
+  explanation: string;
+  xpEarned: number;
+  nextStepIndex: number;
+  lessonCompleted: boolean;
+  updatedUser: any;
+}
+
+interface CompleteResponse {
+  lessonKey: string;
+  nextLesson: Omit<LessonData, "totalLessons" | "isCompleted" | "allDone"> | null;
+  allDone: boolean;
+}
+
+// ── XP Popup ──────────────────────────────────────────────────────────────────
+
+const XpPopup = ({ amount, onDone }: { amount: number; onDone: () => void }) => {
+  useEffect(() => {
+    const t = setTimeout(onDone, 1500);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return (
+    <div
+      className="xp-popup animate-xp-float"
+      style={{ top: "42%", left: "50%", transform: "translate(-50%,-50%)" }}
+    >
+      +{amount} XP ✨
+    </div>
+  );
 };
 
-// Generate similar content for other lessons
-const generateLessonContent = (moduleId: string, lessonId: string) => {
-  const key = `${moduleId}.${lessonId}`;
-  if (lessonContent[key]) return lessonContent[key];
+// ── Confetti ──────────────────────────────────────────────────────────────────
 
-  // Default lesson structure
-  return {
-    title: `Lesson ${key}`,
-    slides: [
-      {
-        type: "intro",
-        content: {
-          image: "📚",
-          text: `Welcome to Lesson ${key}! Let's learn something new!`,
-        },
-      },
-      {
-        type: "content",
-        content: {
-          image: "💡",
-          text: "This is a sample lesson. In a full version, each lesson would have rich, educational content!",
-        },
-      },
-      {
-        type: "question",
-        content: {
-          question: "Sample question: What did we learn?",
-          options: [
-            { id: "a", text: "Important financial concepts", correct: true },
-            { id: "b", text: "Nothing", correct: false },
-          ],
-        },
-      },
-      {
-        type: "completion",
-        content: {
-          message: "🎉 Lesson Complete!",
-          xp: 50,
-        },
-      },
-    ],
-  };
-};
-
-// Confetti effect
-const createConfetti = () => {
-  const colors = ['#1E90FF', '#00FFFF', '#4169E1', '#87CEEB'];
-  const confettiCount = 50;
-  
-  for (let i = 0; i < confettiCount; i++) {
-    const confetti = document.createElement('div');
-    confetti.className = 'confetti-particle';
-    confetti.style.left = Math.random() * 100 + '%';
-    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-    confetti.style.animationDelay = Math.random() * 0.5 + 's';
-    confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
-    document.body.appendChild(confetti);
-    
-    setTimeout(() => confetti.remove(), 3000);
+const fireConfetti = () => {
+  const colors = ["#1E90FF", "#00FFFF", "#FFD700", "#4169E1", "#87CEEB"];
+  for (let i = 0; i < 60; i++) {
+    const el = document.createElement("div");
+    el.className = "confetti-particle";
+    el.style.left = Math.random() * 100 + "%";
+    el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDelay = Math.random() * 0.5 + "s";
+    el.style.animationDuration = Math.random() * 2 + 2 + "s";
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
   }
 };
 
-const Lesson = () => {
-  const { moduleId, lessonId } = useParams();
-  const { completeLesson } = useProgress();
+// ── Main Component ────────────────────────────────────────────────────────────
+
+const LessonPage = () => {
   const navigate = useNavigate();
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string[]>>({});
-  const [xpEarned, setXpEarned] = useState(0);
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
-  const [readingProgress, setReadingProgress] = useState(0);
+  const { refreshUser } = useAuth();
 
-  const lesson = generateLessonContent(moduleId!, lessonId!);
-  const progress = ((currentSlide + 1) / lesson.slides.length) * 100;
-  const currentSlideData = lesson.slides[currentSlide];
+  // Lesson state
+  const [lesson, setLesson] = useState<LessonData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Update reading progress based on slide
+  // Step navigation
+  const [stepIndex, setStepIndex] = useState(0);
+  const [totalXp, setTotalXp] = useState(0);
+  const [xpPopup, setXpPopup] = useState<number | null>(null);
+  const [streak, setStreak] = useState(0);
+
+  // MCQ state
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<SubmitResponse | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Coinsworth
+  const [coinsworthMsg, setCoinsworthMsg] = useState("Let's learn something real today! 🚀");
+  const [showCoinsworth, setShowCoinsworth] = useState(true);
+
+  // Transition animation
+  const [slideKey, setSlideKey] = useState(0);
+
+  // ── Fetch current lesson ────────────────────────────────────────────────────
+
+  const fetchLesson = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    setError(null);
+    try {
+      const data = await api.get<LessonData>("/learning/current");
+      setLesson(data);
+      setStepIndex(0);
+      setSelectedOption(null);
+      setFeedback(null);
+      setSlideKey((k) => k + 1);
+    } catch (err: any) {
+      setError(err.message || "Failed to load lesson. Is the server running?");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    setReadingProgress(progress);
-  }, [progress]);
+    fetchLesson();
+  }, [fetchLesson]);
 
-  const handleNext = () => {
-    if (currentSlide < lesson.slides.length - 1) {
-      setSlideDirection('right');
-      setCurrentSlide(currentSlide + 1);
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  const awardXp = (amount: number) => {
+    setTotalXp((x) => x + amount);
+    setXpPopup(amount);
+  };
+
+  const advanceToStep = (nextIdx: number) => {
+    setSelectedOption(null);
+    setFeedback(null);
+    setSlideKey((k) => k + 1);
+    setStepIndex(nextIdx);
+  };
+
+  // ── Handle INFO step Continue ──────────────────────────────────────────────
+
+  const handleInfoContinue = async () => {
+    if (!lesson) return;
+    const step = lesson.steps[stepIndex] as InfoStep;
+    const gain = step.xp || 5;
+    awardXp(gain);
+    setCoinsworthMsg("Great! Keep your momentum. 💪");
+
+    const isLast = stepIndex === lesson.steps.length - 1;
+    if (isLast) {
+      await handleLessonComplete();
     } else {
-      // Lesson complete
-      completeLesson(parseInt(moduleId!), lessonId!);
-      createConfetti();
-      setTimeout(() => navigate("/learning"), 2000);
+      advanceToStep(stepIndex + 1);
     }
   };
 
-  const handlePrevious = () => {
-    if (currentSlide > 0) {
-      setSlideDirection('left');
-      setCurrentSlide(currentSlide - 1);
-    }
-  };
+  // ── Handle MCQ answer submission ───────────────────────────────────────────
 
-  const handleAnswer = (
-    slideIndex: number,
-    answerId: string,
-    multiSelect: boolean
-  ) => {
-    if (multiSelect) {
-      const current = answers[slideIndex] || [];
-      const newAnswers = current.includes(answerId)
-        ? current.filter((id) => id !== answerId)
-        : [...current, answerId];
-      setAnswers({ ...answers, [slideIndex]: newAnswers });
-    } else {
-      setAnswers({ ...answers, [slideIndex]: [answerId] });
+  const handleSubmitAnswer = async (optionId: string) => {
+    if (!lesson || submitting || feedback) return;
+    setSelectedOption(optionId);
+    setSubmitting(true);
 
-      // Auto-advance after feedback
-      const slide = lesson.slides[slideIndex];
-      const option = slide.content.options.find((o: any) => o.id === answerId);
+    try {
+      const result = await api.post<SubmitResponse>("/learning/submit", {
+        lessonId: lesson.lessonId,
+        stepIndex,
+        answer: optionId,
+      });
 
-      if (option?.correct) {
-        setXpEarned(xpEarned + 10);
-        toast.success("Correct! +10 XP", {
-          icon: "✨",
-          duration: 2000,
-        });
-        setTimeout(() => handleNext(), 1500);
+      setFeedback(result);
+      awardXp(result.xpEarned);
+
+      if (result.isCorrect) {
+        setStreak((s) => s + 1);
+        setCoinsworthMsg(streak >= 2 ? `${streak + 1} in a row! 🔥` : "Correct! Great thinking. 🎉");
       } else {
-        toast.error("Not quite! Try again.", {
-          icon: "🤔",
-          duration: 2000,
-        });
+        setStreak(0);
+        setCoinsworthMsg("Read the explanation — it really helps. 💡");
       }
+
+      // Sync user XP in auth context
+      await refreshUser();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit answer");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleExit = () => {
-    if (
-      confirm("Are you sure you want to exit? Your progress will be saved.")
-    ) {
+  // ── Got it! → advance after MCQ feedback ──────────────────────────────────
+
+  const handleGotIt = async () => {
+    if (!feedback || !lesson) return;
+    const isLast = feedback.lessonCompleted;
+    if (isLast) {
+      await handleLessonComplete();
+    } else {
+      advanceToStep(feedback.nextStepIndex);
+    }
+  };
+
+  // ── Lesson complete → auto-load next ──────────────────────────────────────
+
+  const handleLessonComplete = async () => {
+    if (!lesson) return;
+    fireConfetti();
+
+    try {
+      const result = await api.post<CompleteResponse>("/learning/complete", {
+        lessonId: lesson.lessonId,
+      });
+
+      awardXp(lesson.xpReward);
+      await refreshUser();
+
+      if (result.allDone || !result.nextLesson) {
+        toast.success("🎓 You've completed all lessons! You're a Money Master!");
+        setTimeout(() => navigate("/learning"), 2500);
+        return;
+      }
+
+      toast.success(`✅ Lesson complete! Loading: ${result.nextLesson.title}`);
+
+      // Seamlessly load next lesson
+      setTimeout(() => {
+        setLesson({
+          ...result.nextLesson!,
+          totalLessons: lesson.totalLessons,
+          isCompleted: false,
+          allDone: false,
+        });
+        setStepIndex(0);
+        setSelectedOption(null);
+        setFeedback(null);
+        setSlideKey((k) => k + 1);
+        setCoinsworthMsg("New lesson! Let's keep building your knowledge. 📚");
+      }, 1500);
+    } catch (err: any) {
+      toast.error(err.message || "Could not load next lesson");
       navigate("/learning");
     }
   };
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' && currentSlideData.type !== 'question') {
-        handleNext();
-      } else if (e.key === 'ArrowLeft') {
-        handlePrevious();
-      }
-    };
+  // ── Exit ───────────────────────────────────────────────────────────────────
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [currentSlide, currentSlideData]);
+  const handleExit = () => {
+    if (confirm("Exit lesson? Your XP is already saved.")) {
+      navigate("/learning");
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto" />
+          <p className="text-muted-foreground">Loading your lesson…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !lesson) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="p-8 max-w-md text-center glass-heavy">
+          <p className="text-3xl mb-4">⚠️</p>
+          <h2 className="text-xl font-bold mb-2">Could not load lesson</h2>
+          <p className="text-muted-foreground mb-4 text-sm">{error}</p>
+          <p className="text-xs text-muted-foreground mb-6">
+            Make sure the server is running and you have seeded lessons:{" "}
+            <code className="bg-muted px-1 rounded">npm run seed:v2</code>
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button className="btn-secondary-cta" onClick={() => navigate("/learning")}>
+              Back
+            </button>
+            <button className="btn-primary-cta" onClick={() => fetchLesson()}>
+              Retry
+            </button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  const currentStep = lesson.steps[stepIndex];
+  const progressPercent = ((stepIndex + 1) / lesson.steps.length) * 100;
+
+  const renderInfoStep = (step: InfoStep) => (
+    <div className="space-y-8 max-w-3xl mx-auto animate-fade-in" key={slideKey}>
+      {step.emoji && (
+        <div className="text-8xl animate-float">{step.emoji}</div>
+      )}
+      <div className="glass-light p-8 rounded-2xl text-left">
+        {/* Render line-breaks and bold from content */}
+        <p className="text-xl md:text-2xl leading-relaxed font-medium whitespace-pre-line">
+          {step.content.replace(/\*\*(.*?)\*\*/g, "$1")}
+        </p>
+      </div>
+      <div className="flex justify-center">
+        <button className="btn-primary-cta" onClick={handleInfoContinue}>
+          Continue <ArrowRight className="inline ml-2 h-5 w-5" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderMcqStep = (step: McqStep) => (
+    <div className="space-y-6 w-full max-w-3xl mx-auto animate-fade-in" key={slideKey}>
+      <div className="glass-light p-6 rounded-2xl">
+        <p className="text-2xl md:text-3xl font-bold">{step.question}</p>
+      </div>
+
+      <div className="space-y-3">
+        {step.options.map((opt, idx) => {
+          let cls =
+            "w-full p-5 text-lg text-left border-2 rounded-2xl transition-all duration-300 font-medium flex items-center gap-3";
+
+          if (feedback) {
+            if (opt.id === feedback.correctAnswer) {
+              cls += " option-correct animate-correct-bounce";
+            } else if (opt.id === selectedOption && !feedback.isCorrect) {
+              cls += " option-wrong animate-shake";
+            } else {
+              cls += " opacity-40";
+            }
+          } else {
+            cls +=
+              opt.id === selectedOption
+                ? " bg-primary/20 border-primary shadow-lg"
+                : " glass-light hover:glass-medium border-border hover:border-primary/50 cursor-pointer hover:-translate-y-0.5";
+          }
+
+          return (
+            <button
+              key={opt.id}
+              className={cls}
+              disabled={!!feedback || submitting}
+              onClick={() => handleSubmitAnswer(opt.id)}
+            >
+              {submitting && opt.id === selectedOption ? (
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              ) : (
+                <span className="font-bold text-primary shrink-0">
+                  {String.fromCharCode(65 + idx)}.
+                </span>
+              )}
+              {opt.text}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Feedback panel */}
+      {feedback && (
+        <div
+          className={`p-5 rounded-2xl border-2 animate-slide-up ${
+            feedback.isCorrect
+              ? "bg-green-50 dark:bg-green-950/30 border-green-400"
+              : "bg-red-50 dark:bg-red-950/30 border-red-400"
+          }`}
+        >
+          <p className="font-bold text-lg mb-1">
+            {feedback.isCorrect ? "✅ Correct!" : "❌ Not quite"}
+          </p>
+          <p className="text-base text-foreground/80">{feedback.explanation}</p>
+          <button className="btn-primary-cta mt-4" onClick={handleGotIt}>
+            Got it! <ArrowRight className="inline ml-2 h-4 w-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute top-10 left-10 text-6xl opacity-10 animate-float">💡</div>
-      <div className="absolute bottom-10 right-10 text-6xl opacity-10 animate-float" style={{ animationDelay: '1s' }}>📚</div>
-      <div className="absolute top-1/2 right-20 text-5xl opacity-10 animate-float" style={{ animationDelay: '0.5s' }}>✨</div>
+      {/* Floating background finance icons */}
+      {["💰", "📊", "💳", "🏦"].map((icon, i) => (
+        <div
+          key={i}
+          className="absolute text-5xl opacity-[0.06] animate-float pointer-events-none select-none"
+          style={{
+            top: `${15 + i * 22}%`,
+            left: i % 2 === 0 ? "4%" : undefined,
+            right: i % 2 !== 0 ? "4%" : undefined,
+            animationDelay: `${i * 0.6}s`,
+          }}
+        >
+          {icon}
+        </div>
+      ))}
 
-      {/* Reading Progress Bar */}
-      <div 
-        className="reading-progress" 
-        style={{ width: `${readingProgress}%` }}
-      />
+      {/* Reading progress bar */}
+      <div className="reading-progress" style={{ width: `${progressPercent}%` }} />
+
+      {/* XP popup */}
+      {xpPopup !== null && <XpPopup amount={xpPopup} onDone={() => setXpPopup(null)} />}
 
       <div className="w-full max-w-4xl relative z-10">
         {/* Header */}
         <div className="mb-6 glass-medium p-4 rounded-2xl">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary animate-pulse-soft" />
                 {lesson.title}
               </h2>
-              <span className="text-sm text-muted-foreground">
-                {currentSlide + 1} / {lesson.slides.length}
+              <span className="text-sm text-muted-foreground font-medium">
+                Step {stepIndex + 1} of {lesson.steps.length}
               </span>
+              {streak >= 2 && (
+                <span className="streak-badge animate-fire">🔥 {streak} streak</span>
+              )}
             </div>
-            <Button variant="ghost" size="icon" onClick={handleExit} className="hover:bg-destructive/10">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleExit}
+              className="hover:bg-destructive/10"
+            >
               <X className="h-5 w-5" />
             </Button>
           </div>
+
           <div className="flex items-center gap-4">
-            <Progress value={progress} className="flex-1 h-3" />
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+            <div className="flex-1">
+              <Progress value={progressPercent} className="h-3" />
+              <p className="text-xs text-muted-foreground mt-1">
+                {Math.round(progressPercent)}% complete
+              </p>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 shrink-0">
               <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-bold text-primary">+{xpEarned} XP</span>
+              <span className="text-sm font-bold text-primary">+{totalXp} XP</span>
             </div>
           </div>
         </div>
 
-        {/* Slide Content */}
-        <Card className={`glass-heavy p-8 md:p-12 min-h-[550px] flex flex-col items-center justify-center text-center relative overflow-hidden ${
-          slideDirection === 'right' ? 'animate-slide-in-right' : 'animate-slide-in-left'
-        }`}>
-          {/* Slide-specific background glow */}
+        {/* Step card */}
+        <Card className="glass-heavy p-8 md:p-12 min-h-[520px] flex flex-col items-center justify-center text-center relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-50" />
-
           <div className="relative z-10 w-full">
-            {currentSlideData.type === "intro" && (
-              <div className="space-y-8 animate-scale-in">
-                <div className="text-9xl mb-6 animate-bounce-in">
-                  {currentSlideData.content.image}
-                </div>
-                <p className="text-3xl font-bold leading-relaxed max-w-2xl mx-auto">
-                  {currentSlideData.content.text}
-                </p>
-                <Button
-                  onClick={handleNext}
-                  size="lg"
-                  className="bg-gradient-primary hover:opacity-90 transition-all hover:scale-105 text-lg px-8 py-6 mt-8"
-                >
-                  Let's Start! <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </div>
-            )}
-
-            {currentSlideData.type === "content" && (
-              <div className="space-y-8 max-w-3xl mx-auto animate-fade-in">
-                <div className="text-8xl mb-8 animate-float">
-                  {currentSlideData.content.image}
-                </div>
-                <div className="glass-light p-8 rounded-2xl">
-                  <p className="text-2xl leading-relaxed font-medium">
-                    {currentSlideData.content.text}
-                  </p>
-                </div>
-                <div className="flex gap-4 justify-center mt-8">
-                  {currentSlide > 0 && (
-                    <Button
-                      onClick={handlePrevious}
-                      variant="outline"
-                      size="lg"
-                      className="hover:scale-105 transition-transform"
-                    >
-                      <ArrowLeft className="mr-2 h-5 w-5" /> Previous
-                    </Button>
-                  )}
-                  <Button
-                    onClick={handleNext}
-                    size="lg"
-                    className="bg-gradient-primary hover:opacity-90 transition-all hover:scale-105"
-                  >
-                    Continue <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {currentSlideData.type === "question" && (
-              <div className="space-y-8 w-full max-w-3xl mx-auto animate-fade-in">
-                <div className="glass-light p-6 rounded-2xl mb-8">
-                  <p className="text-3xl font-bold mb-2">
-                    {currentSlideData.content.question}
-                  </p>
-                  {currentSlideData.content.multiSelect && (
-                    <p className="text-sm text-muted-foreground">
-                      💡 Select all that apply
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  {currentSlideData.content.options.map((option: any, index: number) => {
-                    const isSelected = answers[currentSlide]?.includes(option.id);
-                    return (
-                      <Button
-                        key={option.id}
-                        variant="outline"
-                        className={`w-full p-6 text-xl justify-start transition-all duration-300 hover:scale-102 ${
-                          isSelected 
-                            ? "bg-primary text-primary-foreground border-primary shadow-lg scale-105" 
-                            : "glass-light hover:glass-medium"
-                        } stagger-${index + 1}`}
-                        onClick={() =>
-                          handleAnswer(
-                            currentSlide,
-                            option.id,
-                            currentSlideData.content.multiSelect
-                          )
-                        }
-                      >
-                        <span className="mr-3 text-2xl">
-                          {isSelected ? "✓" : String.fromCharCode(65 + index)}
-                        </span>
-                        {option.text}
-                      </Button>
-                    );
-                  })}
-                </div>
-                {currentSlideData.content.multiSelect &&
-                  answers[currentSlide]?.length > 0 && (
-                    <Button
-                      onClick={handleNext}
-                      size="lg"
-                      className="bg-gradient-primary hover:opacity-90 transition-all hover:scale-105 w-full md:w-auto"
-                    >
-                      Submit Answers <CheckCircle2 className="ml-2 h-5 w-5" />
-                    </Button>
-                  )}
-              </div>
-            )}
-
-            {currentSlideData.type === "story" && (
-              <div className="space-y-8 max-w-3xl mx-auto animate-fade-in">
-                <div className="text-8xl mb-8 animate-float">
-                  {currentSlideData.content.image}
-                </div>
-                <div className="glass-light p-8 rounded-2xl space-y-6">
-                  <p className="text-2xl leading-relaxed italic">
-                    "{currentSlideData.content.story}"
-                  </p>
-                  <div className="p-6 bg-gradient-to-r from-primary/20 to-accent/20 rounded-xl border-2 border-primary/30 animate-glow">
-                    <div className="flex items-start gap-3">
-                      <span className="text-3xl">💡</span>
-                      <div>
-                        <p className="font-bold text-lg mb-1">Key Takeaway:</p>
-                        <p className="text-xl font-semibold">
-                          {currentSlideData.content.lesson}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-4 justify-center">
-                  {currentSlide > 0 && (
-                    <Button
-                      onClick={handlePrevious}
-                      variant="outline"
-                      size="lg"
-                      className="hover:scale-105 transition-transform"
-                    >
-                      <ArrowLeft className="mr-2 h-5 w-5" /> Previous
-                    </Button>
-                  )}
-                  <Button
-                    onClick={handleNext}
-                    size="lg"
-                    className="bg-gradient-primary hover:opacity-90 transition-all hover:scale-105"
-                  >
-                    Awesome! <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {currentSlideData.type === "completion" && (
-              <div className="space-y-8 animate-bounce-in">
-                <div className="text-9xl mb-8 animate-bounce-in">🎉</div>
-                <h2 className="text-5xl font-bold mb-4 bg-gradient-primary bg-clip-text text-transparent">
-                  {currentSlideData.content.message}
-                </h2>
-                <div className="glass-medium p-8 rounded-2xl inline-block">
-                  <p className="text-3xl mb-2">
-                    You earned{" "}
-                    <span className="font-bold text-accent text-4xl animate-pulse-soft">
-                      {currentSlideData.content.xp + xpEarned} XP
-                    </span>
-                    !
-                  </p>
-                  <p className="text-muted-foreground">Keep up the great work!</p>
-                </div>
-                {currentSlideData.content.badge && (
-                  <div className="p-8 bg-gradient-to-r from-primary/20 to-accent/20 rounded-2xl border-2 border-primary/30 animate-glow">
-                    <p className="text-2xl font-semibold mb-4">🏆 Badge Unlocked!</p>
-                    <p className="text-5xl">{currentSlideData.content.badge}</p>
-                  </div>
-                )}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-                  <Button
-                    onClick={() => navigate("/learning")}
-                    variant="outline"
-                    size="lg"
-                    className="hover:scale-105 transition-transform"
-                  >
-                    Back to Learning Path
-                  </Button>
-                  <Button
-                    onClick={() => navigate(`/learning`)}
-                    size="lg"
-                    className="bg-gradient-primary hover:opacity-90 transition-all hover:scale-105"
-                  >
-                    Continue Learning <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </div>
-              </div>
-            )}
+            {currentStep.type === "info"
+              ? renderInfoStep(currentStep as InfoStep)
+              : renderMcqStep(currentStep as McqStep)}
           </div>
         </Card>
 
-        {/* Navigation Hint */}
-        <div className="mt-4 text-center text-sm text-muted-foreground glass-light p-3 rounded-lg">
-          💡 Tip: Use arrow keys ← → to navigate between slides
+        {/* Lesson breadcrumb */}
+        <div className="mt-3 text-center text-xs text-muted-foreground glass-light p-2 rounded-lg">
+          Lesson {lesson.order} of {lesson.totalLessons} •{" "}
+          <span className="text-primary font-medium">{lesson.title}</span>
         </div>
+      </div>
+
+      {/* Coinsworth character */}
+      <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-2">
+        {showCoinsworth && (
+          <div className="coinsworth-bubble animate-scale-in">
+            <button
+              className="absolute top-1 right-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setShowCoinsworth(false)}
+            >
+              ✕
+            </button>
+            <p>{coinsworthMsg}</p>
+          </div>
+        )}
+        <button
+          className="text-4xl animate-coinsworth-bounce hover:scale-110 transition-transform"
+          onClick={() => setShowCoinsworth((s) => !s)}
+          title="Coinsworth"
+        >
+          🪙
+        </button>
       </div>
     </div>
   );
 };
 
-export default Lesson;
+export default LessonPage;

@@ -13,7 +13,8 @@
     "lint": "eslint . --ext .ts",
     "seed": "ts-node src/scripts/seed.ts",
     "seed:all": "ts-node src/scripts/seedAll.ts",
-    "seed:testimonials": "ts-node src/scripts/seedTestimonials.ts"
+    "seed:testimonials": "ts-node src/scripts/seedTestimonials.ts",
+    "seed:v2": "ts-node src/scripts/seedLessonsV2.ts"
   },
   "keywords": [
     "express",
