@@ -2,222 +2,80 @@
 
 A gamified financial literacy learning platform for young learners (ages 5–25). Users progress through structured learning modules, earn XP, manage a virtual wallet, trade simulated stocks, unlock achievements, and compete on leaderboards.
 
----
-
-## Architecture Overview
+## Architecture
 
 Monorepo with two independent apps:
 
 ```
 Capstone/
-├── client/          # React SPA (Vite + TypeScript)
-├── server/          # Express REST API (TypeScript)
-└── .gitignore
+├── client/          # React SPA (Vite + TypeScript) → deployed on Vercel
+├── server/          # Express REST API (TypeScript) → deployed on Render
+├── CLAUDE.md        # This file — project-wide instructions
+├── client/CLAUDE.md # Client-specific conventions
+└── server/CLAUDE.md # Server-specific conventions
 ```
 
-- **Client** → deployed on **Vercel** (SPA with catch-all rewrite)
-- **Server** → deployed on **Render** (Node.js service)
-- **Database** → **MongoDB Atlas** (Mongoose ODM)
-- Communication: REST over HTTPS, JWT Bearer auth, JSON request/response
+- **Database**: MongoDB Atlas (Mongoose ODM)
+- **Communication**: REST over HTTPS, JWT Bearer auth, JSON request/response
 
----
+## Tech Stack (Summary)
 
-## Tech Stack
+- **Server**: Node.js, TypeScript, Express 5, Mongoose 8, Zod v4, JWT + Passport (Google OAuth), Brevo HTTP API, Pino logger
+- **Client**: React 18, TypeScript, Vite 5, Tailwind CSS 3 + shadcn/ui, TanStack React Query v5, React Router v6, React Hook Form + Zod v3, Recharts
 
-### Server (`server/`)
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js, TypeScript (ES2021, CommonJS) |
-| Framework | Express 5 |
-| Database | MongoDB via Mongoose 8 |
-| Auth | JWT (`jsonwebtoken`), bcryptjs, Passport (Google OAuth 2.0) |
-| Validation | Zod (v4) |
-| Email | Brevo HTTP API (`email.service.ts`) |
-| Logging | Pino + pino-pretty |
-| Security | Helmet, CORS (origin allowlist), cookie-parser |
-| Dev Tools | ts-node-dev (hot reload), rimraf (clean builds) |
+## Core Conventions
 
-### Client (`client/`)
-| Layer | Technology |
-|---|---|
-| Framework | React 18, TypeScript |
-| Build | Vite 5 (SWC plugin) |
-| Styling | Tailwind CSS 3 + tailwindcss-animate, CSS variables (HSL design tokens) |
-| UI Components | shadcn/ui (Radix UI primitives) |
-| State | React Context API (AuthContext, WalletContext, ProgressContext) |
-| Data Fetching | TanStack React Query v5 + custom `api.ts` fetch wrapper |
-| Routing | React Router v6 |
-| Forms | React Hook Form + Zod resolvers |
-| Charts | Recharts |
-| Fonts | Nunito (primary), Inter (fallback) |
-| Notifications | Sonner + shadcn Toaster |
+### Response Format (Server)
 
----
-
-## Project Structure
-
-### Server
-```
-server/src/
-├── app.ts                  # Express app setup (middleware, routes)
-├── server.ts               # HTTP server bootstrap
-├── index.ts                # Entry point (connects DB, starts server)
-├── config/
-│   ├── env.ts              # Zod-validated environment variables
-│   ├── database.ts         # MongoDB connection
-│   └── passport.ts         # Google OAuth strategy
-├── middleware/
-│   ├── auth.ts             # JWT authenticate middleware
-│   ├── validate.ts         # Zod validation middleware
-│   └── errorHandler.ts     # Global error handler + 404
-├── models/                 # Mongoose schemas & models
-│   ├── User.ts             # User with auth, XP, streaks
-│   ├── Module.ts           # Learning modules
-│   ├── Lesson.ts           # Lessons within modules
-│   ├── Quiz.ts             # Quizzes per module
-│   ├── Progress.ts         # User learning progress & achievements
-│   ├── Wallet.ts           # Virtual currency wallet
-│   ├── Stock.ts            # Simulated stock data
-│   ├── Achievement.ts      # Achievement definitions
-│   └── Testimonial.ts      # User testimonials
-├── modules/                # Feature modules (controller/service/routes/schema pattern)
-│   ├── auth/
-│   ├── learning/
-│   ├── wallet/
-│   ├── stocks/
-│   ├── achievements/
-│   ├── leaderboard/
-│   └── testimonials/
-├── routes/
-│   └── index.ts            # Central router (/api prefix)
-├── data/                   # Seed data files
-├── scripts/                # Database seeding scripts
-├── types/
-│   └── express.d.ts        # Express Request.user augmentation
-└── utils/
-    ├── ApiError.ts          # Custom error class (statusCode + details)
-    ├── asyncHandler.ts      # Async/await Express wrapper
-    ├── response.ts          # sendSuccess() helper
-    ├── email.service.ts     # Brevo HTTP API email service
-    ├── logger.ts            # Pino logger
-    └── gamification.ts      # XP/level calculation
+```json
+{ "status": "success", "data": { ... }, "message": "..." }
+{ "status": "error", "message": "..." }
 ```
 
-### Client
-```
-client/src/
-├── App.tsx                 # Root with providers & route definitions
-├── main.tsx                # ReactDOM entry
-├── index.css               # Global styles + Tailwind + CSS variables
-├── components/
-│   ├── ui/                 # shadcn/ui components (49 components)
-│   ├── theme-provider.tsx  # Dark/light/system theme
-│   └── theme-toggle.tsx    # Theme switcher
-├── contexts/
-│   ├── AuthContext.tsx      # Authentication state & actions
-│   ├── WalletContext.tsx    # Virtual wallet state
-│   └── ProgressContext.tsx  # Learning progress state
-├── features/
-│   ├── auth/               # Auth feature components
-│   ├── learning/           # Learning feature components
-│   └── wallet/             # Wallet feature components
-├── hooks/
-│   ├── use-mobile.tsx      # Responsive breakpoint hook
-│   └── use-toast.ts        # Toast notification hook
-├── layouts/
-│   ├── DashboardLayout.tsx # Authenticated layout with sidebar
-│   └── NavLink.tsx         # Navigation link component
-├── pages/                  # Route-level page components
-│   ├── Landing.tsx
-│   ├── Login.tsx / Signup.tsx / VerifyOtp.tsx
-│   ├── ForgotPassword.tsx / ResetPassword.tsx
-│   ├── OAuthCallback.tsx
-│   ├── DashboardPage.tsx
-│   ├── LearningPage.tsx / LessonPage.tsx / QuizPage.tsx
-│   ├── WalletPage.tsx
-│   ├── AchievementsPage.tsx
-│   ├── LeaderboardPage.tsx
-│   ├── BattlesPage.tsx
-│   ├── ToolsPage.tsx
-│   ├── SettingsPage.tsx
-│   └── NotFound.tsx
-├── services/
-│   └── api.ts              # Fetch wrapper with auth token injection
-├── constants/
-│   └── index.ts            # APP_NAME, API_BASE_URL, ROUTES
-├── lib/
-│   └── utils.ts            # cn() (clsx + tailwind-merge)
-└── types/
-    └── index.ts            # Shared TypeScript interfaces
-```
+### Module Pattern (Server)
 
----
+Each feature in `server/src/modules/<feature>/` has:
+- `<feature>.controller.ts` — route handlers (wrapped in `asyncHandler`)
+- `<feature>.service.ts` — business logic
+- `<feature>.routes.ts` — Express Router with middleware
+- `<feature>.schema.ts` — Zod validation schemas
 
-## Coding Conventions & Patterns
+### Error Handling
 
-### Server Conventions
+- Throw `ApiError(statusCode, message)` — caught by global `errorHandler`
+- Use `validate(schema)` middleware for Zod validation in routes
+- Use `asyncHandler` wrapper for all async controller functions
 
-1. **Module pattern**: Each feature lives in `server/src/modules/<feature>/` with:
-   - `<feature>.controller.ts` — route handlers (use `asyncHandler` wrapper)
-   - `<feature>.service.ts` — business logic
-   - `<feature>.routes.ts` — Express Router with middleware
-   - `<feature>.schema.ts` — Zod validation schemas
+### Authentication
 
-2. **Error handling**: Throw `ApiError(statusCode, message)` — the global `errorHandler` middleware catches everything.
+- JWT Bearer token via `authenticate` middleware on protected routes
+- Access user via `req.user` (typed as `IUserDocument`)
+- OTP-based auth: signup/login → email OTP → verify → receive JWT
+- Google OAuth via Passport → redirects to client with JWT in URL query
+- Token stored in `localStorage` (key: `auth_token`)
 
-3. **Validation**: Use the `validate(schema)` middleware in routes. It parses `req.body` (default), `req.query`, or `req.params`.
+### Client Patterns
 
-4. **Response format**: Always use `sendSuccess(res, data, message?, statusCode?)` which returns:
-   ```json
-   { "status": "success", "data": { ... }, "message": "..." }
-   ```
-   Errors return:
-   ```json
-   { "status": "error", "message": "..." }
-   ```
+- Path alias: `@/` → `client/src/`
+- UI: shadcn/ui components from `@/components/ui/`
+- State: React Context (Auth, Wallet, Progress) + TanStack Query for server state
+- API calls: Use `api` object from `@/services/api.ts` (tokens auto-injected)
+- Theme: Dark/light/system via `next-themes` (key: `moneymaster-theme`)
+- Font: Nunito → Inter → system-ui → sans-serif
 
-5. **Authentication**: JWT Bearer token. Use `authenticate` middleware on protected routes. Access user via `req.user` (typed as `IUserDocument`).
+## Lesson Engine (V2)
 
-6. **Model naming**: Mongoose models use PascalCase with `Model` suffix (e.g., `UserModel`, `WalletModel`). Interfaces use `I` prefix (e.g., `IUser`, `IUserDocument`).
+The platform uses a **dynamic step-based lesson engine**:
+- Lessons are stored in the `LessonV2` model with ordered `steps` (info cards + MCQ questions)
+- The server drives all lesson flow — no hardcoded lesson data on the client
+- Steps award XP incrementally; MCQ answers give partial XP even if wrong
+- Legacy slide-based lesson routes are kept for backward compatibility
 
-7. **Environment variables**: All env vars validated at startup via Zod in `config/env.ts`. Access via `env.VAR_NAME`.
-
-8. **Password security**: bcrypt (salt rounds: 10), SHA-256 for OTP/token hashing. Sensitive fields use `select: false` in schemas.
-
-### Client Conventions
-
-1. **Path aliases**: `@/` maps to `client/src/` (configured in `vite.config.ts` and `tsconfig`).
-
-2. **UI components**: Use shadcn/ui from `@/components/ui/`. Style with Tailwind CSS + CSS variables (HSL color tokens defined in `index.css`).
-
-3. **State management**: React Context for global state (Auth, Wallet, Progress). TanStack Query for server state.
-
-4. **API calls**: Use the `api` object from `@/services/api.ts`:
-   ```ts
-   api.get<T>(endpoint)
-   api.post<T>(endpoint, data?)
-   api.patch<T>(endpoint, data?)
-   api.put<T>(endpoint, data?)
-   api.delete<T>(endpoint)
-   ```
-   Tokens are auto-injected. Errors throw with the server's error message.
-
-5. **Protected routes**: Wrap in `<ProtectedRoute>` component — redirects to `/login` if unauthenticated.
-
-6. **Page components**: Each page is a standalone component in `client/src/pages/`. Feature-specific sub-components go in `client/src/features/<feature>/`.
-
-7. **Theme**: Dark/light/system via `next-themes`. Theme key: `moneymaster-theme`.
-
-8. **Font stack**: Nunito → Inter → system-ui → sans-serif.
-
----
-
-## API Routes
-
-All routes prefixed with `/api`:
+## API Routes (All prefixed `/api`)
 
 | Route | Auth | Description |
 |---|---|---|
+| **Auth** | | |
 | `POST /api/auth/signup` | No | Start signup (sends OTP) |
 | `POST /api/auth/login` | No | Start login (sends OTP) |
 | `POST /api/auth/verify-otp` | No | Verify OTP and complete auth |
@@ -230,26 +88,24 @@ All routes prefixed with `/api`:
 | `POST /api/auth/change-password` | Yes | Change password (authenticated) |
 | `GET /api/auth/google` | No | Initiate Google OAuth |
 | `GET /api/auth/google/callback` | No | Google OAuth callback |
-| `GET /api/learning/*` | Yes | Learning modules, lessons, quizzes |
+| **Learning (Legacy)** | | |
+| `GET /api/learning/modules` | Yes | List modules with progress |
+| `GET /api/learning/progress` | Yes | User learning progress |
+| `GET /api/learning/lessons/:moduleId/:lessonId` | Yes | Get lesson content |
+| `POST /api/learning/lessons/:moduleId/:lessonId/complete` | Yes | Mark lesson complete |
+| `GET /api/learning/quizzes/:moduleId` | Yes | Get quiz for module |
+| `POST /api/learning/quizzes/:moduleId/submit` | Yes | Submit quiz answers |
+| **Learning (V2 Dynamic Engine)** | | |
+| `GET /api/learning/current` | Yes | Get current (next uncompleted) lesson |
+| `POST /api/learning/submit` | Yes | Submit MCQ step answer |
+| `POST /api/learning/complete` | Yes | Mark V2 lesson complete, get next |
+| **Other** | | |
 | `* /api/wallet/*` | Yes | Virtual wallet operations |
 | `* /api/stocks/*` | Yes | Stock market simulation |
 | `* /api/achievements/*` | Yes | Achievement tracking |
 | `GET /api/leaderboard/*` | Yes | Leaderboard data |
 | `GET /api/testimonials/*` | Mixed | Testimonial data |
 | `GET /health` | No | Health check endpoint |
-
----
-
-## Auth Flow
-
-1. **Signup/Login**: User submits credentials → server sends 7-digit OTP via email → user verifies OTP → receives JWT token
-2. **Signup OTP**: Stored in-memory (`Map`) with 10-min TTL, cleaned every 5 minutes
-3. **Login OTP**: Stored on the User document (`loginOtp`, `loginOtpExpires`) with 10-min TTL
-4. **Google OAuth**: Passport strategy → creates/links user → redirects to client with JWT in URL query
-5. **Token storage**: Client stores JWT in `localStorage` (key: `auth_token`)
-6. **Session restore**: On mount, AuthContext checks for existing token and fetches `/api/auth/me`
-
----
 
 ## Environment Variables
 
@@ -272,67 +128,53 @@ All routes prefixed with `/api`:
 |---|---|---|
 | `VITE_API_URL` | No | Backend API URL (default: `http://localhost:5000/api`) |
 
----
+## Development Commands
 
-## Development
-
-### Prerequisites
-- Node.js 18+
-- MongoDB (local or Atlas)
-- npm
-
-### Quick Start
 ```bash
 # Server
-cd server
-cp .env.example .env    # Fill in MONGODB_URI and JWT_SECRET
-npm install
-npm run dev             # Starts on :5000
-
-# Client (separate terminal)
-cd client
-cp .env.example .env
-npm install
-npm run dev             # Starts on :8080
-```
-
-### Seeding
-```bash
-cd server
-npm run seed:all        # Seeds modules, lessons, quizzes, achievements, testimonials
-npm run seed            # Seeds learning content only
-npm run seed:testimonials
-```
-
-### Building
-```bash
-# Server
-cd server
-npm run build           # Outputs to server/dist/
+cd server && npm install && npm run dev     # Starts on :5000
 
 # Client
-cd client
-npm run build           # Outputs to client/dist/
-```
+cd client && npm install && npm run dev     # Starts on :8080
 
----
+# Seeding
+cd server && npm run seed:all               # All seed data (legacy modules, lessons, quizzes, achievements, testimonials)
+cd server && npm run seed                   # Learning content only (legacy)
+cd server && npm run seed:v2                # Dynamic V2 lessons (step-based)
+cd server && npm run seed:testimonials      # Testimonials only
+
+# Building
+cd server && npm run build                  # → server/dist/
+cd client && npm run build                  # → client/dist/
+```
 
 ## Deployment
 
-- **Client**: Vercel (auto-deploys from git). `vercel.json` rewrites all routes to `index.html` for SPA.
-- **Server**: Render (Node.js service). Build command: `npm run build`, Start: `npm run start`.
+- **Client**: Vercel (auto-deploys from git). `vercel.json` rewrites all routes to `index.html`.
+- **Server**: Render (Node.js service). Build: `npm run build`, Start: `npm run start`.
 - **Database**: MongoDB Atlas.
 - **Email**: Brevo HTTP API (not SMTP — Render blocks outbound SMTP ports).
 
----
-
 ## Key Design Decisions
 
-1. **OTP-based auth** (not session cookies): Both signup and login require email OTP verification.
-2. **In-memory signup OTP store**: Signup OTPs live in a `Map` (not DB) — acceptable for single-instance deployment.
-3. **Brevo HTTP API over SMTP**: Render blocks SMTP ports, so email uses Brevo's REST API directly.
-4. **shadcn/ui**: Components are copied into the repo (not a package dependency) — customizable.
-5. **Express 5**: Using the latest Express version with native async error handling.
-6. **Zod on both sides**: Server uses Zod v4, client uses Zod v3 (via react-hook-form resolvers).
-7. **No test framework configured**: No unit/integration tests currently in place.
-8. **Gamification**: XP-based leveling, login streaks, achievement badges, virtual wallet with simulated stock trading.
+1. **OTP-based auth** — both signup and login require email OTP verification
+2. **In-memory signup OTP store** — lives in a `Map`, acceptable for single-instance deployment
+3. **Brevo HTTP API over SMTP** — Render blocks SMTP ports
+4. **shadcn/ui** — components are copied into repo (not a package dependency)
+5. **Express 5** — native async error handling
+6. **Zod on both sides** — Server uses v4, Client uses v3 (via react-hook-form resolvers)
+7. **No test framework** — no unit/integration tests currently in place
+8. **Gamification** — XP leveling, login streaks, achievements, virtual wallet, simulated stocks
+9. **Dynamic lesson engine (V2)** — step-based lessons (info + MCQ), server-driven flow, replaces hardcoded client slides
+10. **Dual lesson systems** — Legacy slide-based routes kept for backward compatibility alongside V2 engine
+
+## Things to Avoid
+
+- Do NOT use SMTP for email — always use Brevo HTTP API
+- Do NOT store sensitive data in client-side code
+- Do NOT skip Zod validation on new routes
+- Do NOT use `console.log` — use the Pino `logger` from `utils/logger.ts`
+- Do NOT add new shadcn components without running `npx shadcn-ui@latest add <component>`
+- Do NOT hardcode API URLs — use `VITE_API_URL` env var on client, `env.ts` config on server
+- Do NOT hardcode lesson content in the client — use the V2 dynamic engine and seed data on the server
+- Do NOT send MCQ `correctAnswer` or `explanation` to the client before submission (server strips these)

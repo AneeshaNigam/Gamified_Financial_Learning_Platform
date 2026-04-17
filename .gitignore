@@ -60,3 +60,7 @@ server/.env
 client/dist/
 client/.env
 client/.vite/
+
+# Claude Code (personal/local files)
+CLAUDE.local.md
+.claude/
