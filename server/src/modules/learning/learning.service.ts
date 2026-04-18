@@ -177,60 +177,25 @@ export const submitQuiz = async (userId: string, moduleId: number, answers: numb
 
 // ── Dynamic Lesson Engine ─────────────────────────────────────────────────────
 
+import { getNextLesson, AdaptiveLessonResult } from './adaptive.service';
+
 /**
- * Returns the current (next uncompleted) lesson for the user.
- * Lessons are ordered by their global `order` field.
+ * Returns the next recommended lesson for the user using the adaptive engine.
+ * Replaces the old sequential-order lookup.
  */
-export const getCurrentLesson = async (userId: string) => {
-  const progress = await getProgressForUser(userId);
-  const completedKeys = new Set(progress.completedLessons);
-
-  const allLessons = await LessonV2Model.find({ isActive: true })
-    .sort({ order: 1 })
-    .lean();
-
-  if (allLessons.length === 0) {
-    throw new ApiError(404, 'No lessons found. Run: npm run seed:v2');
-  }
-
-  const currentLesson =
-    allLessons.find((l) => !completedKeys.has(`${l.moduleId}.${l.lessonId}`)) ??
-    allLessons[allLessons.length - 1];
-
-  const lessonKey = `${currentLesson.moduleId}.${currentLesson.lessonId}`;
-  const isCompleted = completedKeys.has(lessonKey);
-
-  // Strip correctAnswer before sending to client
-  const clientSteps = currentLesson.steps.map((step) => {
-    if (step.type === 'mcq') {
-      const { correctAnswer: _ca, explanation: _ex, ...rest } = step as any;
-      return rest;
-    }
-    return step;
-  });
-
-  return {
-    lessonId: String(currentLesson._id),
-    moduleId: currentLesson.moduleId,
-    lessonKey,
-    title: currentLesson.title,
-    order: currentLesson.order,
-    totalLessons: allLessons.length,
-    steps: clientSteps,
-    xpReward: currentLesson.xpReward,
-    isCompleted,
-    allDone: isCompleted && String(currentLesson._id) === String(allLessons[allLessons.length - 1]._id),
-  };
+export const getCurrentLesson = async (userId: string): Promise<AdaptiveLessonResult> => {
+  return getNextLesson(userId);
 };
 
 /**
- * Evaluates an MCQ step answer, awards XP, returns feedback.
+ * Evaluates an MCQ step answer, awards XP, **tracks behavior**, returns feedback.
  */
 export const submitStep = async (
   userId: string,
   lessonId: string,
   stepIndex: number,
-  answer: string
+  answer: string,
+  timeTaken?: number
 ) => {
   const lesson = await LessonV2Model.findById(lessonId).lean();
   if (!lesson) throw new ApiError(404, 'Lesson not found');
@@ -246,6 +211,37 @@ export const submitStep = async (
   const updatedUser = await addXpToUser(userId, xpEarned);
   const isLastStep = stepIndex === lesson.steps.length - 1;
 
+  // ── Behavior tracking ───────────────────────────────────────────────────────
+  const progress = await getProgressForUser(userId);
+  const topic = lesson.topic || 'general';
+  const responseMs = timeTaken ?? 0;
+
+  progress.totalAnswered = (progress.totalAnswered || 0) + 1;
+  if (isCorrect) {
+    progress.totalCorrect = (progress.totalCorrect || 0) + 1;
+  }
+  progress.totalResponseTime = (progress.totalResponseTime || 0) + responseMs;
+  progress.accuracy = progress.totalAnswered > 0
+    ? Math.round((progress.totalCorrect / progress.totalAnswered) * 100)
+    : 0;
+  progress.averageResponseTime = progress.totalAnswered > 0
+    ? Math.round(progress.totalResponseTime / progress.totalAnswered)
+    : 0;
+  progress.totalXP = updatedUser.xp;
+
+  // Update topicStats (Mongoose Map)
+  if (!progress.topicStats) {
+    progress.topicStats = new Map();
+  }
+  const stat = progress.topicStats.get(topic) || { correct: 0, wrong: 0 };
+  if (isCorrect) {
+    stat.correct += 1;
+  } else {
+    stat.wrong += 1;
+  }
+  progress.topicStats.set(topic, stat);
+  await progress.save();
+
   return {
     isCorrect,
     correctAnswer: mcqStep.correctAnswer,
@@ -258,7 +254,8 @@ export const submitStep = async (
 };
 
 /**
- * Marks a lesson complete, awards bonus XP & lucre, returns the next lesson.
+ * Marks a lesson complete, awards bonus XP & lucre,
+ * then uses the adaptive engine to recommend the next lesson.
  */
 export const completeLessonV2 = async (userId: string, lessonId: string) => {
   const lesson = await LessonV2Model.findById(lessonId).lean();
@@ -278,37 +275,32 @@ export const completeLessonV2 = async (userId: string, lessonId: string) => {
     ]);
   }
 
-  // Next lesson
-  const nextLesson = await LessonV2Model.findOne({
-    isActive: true,
-    order: { $gt: lesson.order },
-  })
-    .sort({ order: 1 })
-    .lean();
+  // Use adaptive engine for next lesson recommendation
+  try {
+    const adaptiveResult = await getNextLesson(userId);
 
-  if (!nextLesson) {
+    if (adaptiveResult.allDone) {
+      return { lessonKey, nextLesson: null, allDone: true };
+    }
+
+    return {
+      lessonKey,
+      nextLesson: {
+        lessonId: adaptiveResult.lessonId,
+        moduleId: adaptiveResult.moduleId,
+        lessonKey: adaptiveResult.lessonKey,
+        title: adaptiveResult.title,
+        order: adaptiveResult.order,
+        steps: adaptiveResult.steps,
+        xpReward: adaptiveResult.xpReward,
+        topic: adaptiveResult.topic,
+        difficulty: adaptiveResult.difficulty,
+        adaptiveReason: adaptiveResult.adaptiveReason,
+      },
+      allDone: false,
+    };
+  } catch {
+    // If adaptive fails (e.g., no lessons), treat as all done
     return { lessonKey, nextLesson: null, allDone: true };
   }
-
-  const clientSteps = nextLesson.steps.map((step) => {
-    if (step.type === 'mcq') {
-      const { correctAnswer: _ca, explanation: _ex, ...rest } = step as any;
-      return rest;
-    }
-    return step;
-  });
-
-  return {
-    lessonKey,
-    nextLesson: {
-      lessonId: String(nextLesson._id),
-      moduleId: nextLesson.moduleId,
-      lessonKey: `${nextLesson.moduleId}.${nextLesson.lessonId}`,
-      title: nextLesson.title,
-      order: nextLesson.order,
-      steps: clientSteps,
-      xpReward: nextLesson.xpReward,
-    },
-    allDone: false,
-  };
 };

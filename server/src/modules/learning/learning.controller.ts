@@ -71,11 +71,17 @@ export const getCurrentLessonController = asyncHandler(async (req: Request, res:
 
 export const submitStepController = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw new ApiError(401, 'Authentication required');
-  const { lessonId, stepIndex, answer } = req.body;
+  const { lessonId, stepIndex, answer, timeTaken } = req.body;
   if (!lessonId || stepIndex === undefined || !answer) {
     throw new ApiError(400, 'lessonId, stepIndex, and answer are required');
   }
-  const result = await submitStep(req.user.id, lessonId, Number(stepIndex), String(answer));
+  const result = await submitStep(
+    req.user.id,
+    lessonId,
+    Number(stepIndex),
+    String(answer),
+    timeTaken ? Number(timeTaken) : undefined
+  );
   return sendSuccess(res, result);
 });
 

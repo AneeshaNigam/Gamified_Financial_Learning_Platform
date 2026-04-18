@@ -36,6 +36,9 @@ export interface ILessonV2 extends Document {
   isActive: boolean;
   /** ISO tag so AI-generated lessons can be identified */
   source: 'seed' | 'ai' | 'manual';
+  /** Adaptive learning metadata */
+  topic: string;
+  difficulty: 'easy' | 'medium' | 'hard';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,11 +76,14 @@ const LessonV2Schema = new Schema<ILessonV2>(
     lucreReward: { type: Number, default: 20 },
     isActive: { type: Boolean, default: true },
     source: { type: String, enum: ['seed', 'ai', 'manual'], default: 'seed' },
+    topic: { type: String, required: true },
+    difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'medium' },
   },
   { timestamps: true }
 );
 
 LessonV2Schema.index({ moduleId: 1, lessonId: 1 }, { unique: true });
 LessonV2Schema.index({ order: 1 });
+LessonV2Schema.index({ topic: 1, difficulty: 1 });
 
 export const LessonV2Model = mongoose.model<ILessonV2>('LessonV2', LessonV2Schema);

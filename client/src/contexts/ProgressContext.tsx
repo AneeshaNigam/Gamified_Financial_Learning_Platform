@@ -37,6 +37,11 @@ interface ProgressData {
   completedLessons: string[];
   quizScores: QuizScore[];
   achievements: Achievement[];
+  // Behavior tracking (adaptive engine)
+  totalXP?: number;
+  accuracy?: number;
+  averageResponseTime?: number;
+  topicStats?: Record<string, { correct: number; wrong: number }>;
 }
 
 interface ProgressContextType {
