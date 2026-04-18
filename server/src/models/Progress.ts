@@ -20,6 +20,11 @@ export interface IAchievementState {
   total?: number;
 }
 
+export interface ITopicStat {
+  correct: number;
+  wrong: number;
+}
+
 export interface IProgress {
   user: Types.ObjectId;
   currentModule: number;
@@ -27,6 +32,14 @@ export interface IProgress {
   completedLessons: string[];
   quizScores: IQuizScore[];
   achievements: IAchievementState[];
+  // Behavior tracking
+  totalXP: number;
+  accuracy: number;
+  averageResponseTime: number;
+  totalAnswered: number;
+  totalCorrect: number;
+  totalResponseTime: number;
+  topicStats: Map<string, ITopicStat>;
 }
 
 export interface IProgressDocument extends IProgress, Document {}
@@ -57,6 +70,14 @@ const achievementSchema = new Schema<IAchievementState>(
   { _id: false }
 );
 
+const topicStatSchema = new Schema<ITopicStat>(
+  {
+    correct: { type: Number, default: 0 },
+    wrong: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
 const progressSchema = new Schema<IProgressDocument>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', unique: true, required: true },
@@ -64,7 +85,15 @@ const progressSchema = new Schema<IProgressDocument>(
     completedModules: { type: [Number], default: [] },
     completedLessons: { type: [String], default: [] },
     quizScores: { type: [quizScoreSchema], default: [] },
-    achievements: { type: [achievementSchema], default: [] }
+    achievements: { type: [achievementSchema], default: [] },
+    // Behavior tracking
+    totalXP: { type: Number, default: 0 },
+    accuracy: { type: Number, default: 0 },
+    averageResponseTime: { type: Number, default: 0 },
+    totalAnswered: { type: Number, default: 0 },
+    totalCorrect: { type: Number, default: 0 },
+    totalResponseTime: { type: Number, default: 0 },
+    topicStats: { type: Map, of: topicStatSchema, default: new Map() },
   },
   { timestamps: true }
 );

@@ -13,7 +13,7 @@
  * No hardcoded lesson data remains.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,9 @@ interface LessonData {
   xpReward: number;
   isCompleted: boolean;
   allDone: boolean;
+  topic?: string;
+  difficulty?: string;
+  adaptiveReason?: string;
 }
 
 interface SubmitResponse {
@@ -137,6 +140,9 @@ const LessonPage = () => {
   // Transition animation
   const [slideKey, setSlideKey] = useState(0);
 
+  // Response time tracking for adaptive engine
+  const mcqStartTime = useRef<number>(Date.now());
+
   // ── Fetch current lesson ────────────────────────────────────────────────────
 
   const fetchLesson = useCallback(async (quiet = false) => {
@@ -149,6 +155,7 @@ const LessonPage = () => {
       setSelectedOption(null);
       setFeedback(null);
       setSlideKey((k) => k + 1);
+      mcqStartTime.current = Date.now();
     } catch (err: any) {
       setError(err.message || "Failed to load lesson. Is the server running?");
     } finally {
@@ -172,6 +179,7 @@ const LessonPage = () => {
     setFeedback(null);
     setSlideKey((k) => k + 1);
     setStepIndex(nextIdx);
+    mcqStartTime.current = Date.now();
   };
 
   // ── Handle INFO step Continue ──────────────────────────────────────────────
@@ -199,10 +207,12 @@ const LessonPage = () => {
     setSubmitting(true);
 
     try {
+      const timeTaken = Date.now() - mcqStartTime.current;
       const result = await api.post<SubmitResponse>("/learning/submit", {
         lessonId: lesson.lessonId,
         stepIndex,
         answer: optionId,
+        timeTaken,
       });
 
       setFeedback(result);
@@ -449,6 +459,11 @@ const LessonPage = () => {
               <span className="text-sm text-muted-foreground font-medium">
                 Step {stepIndex + 1} of {lesson.steps.length}
               </span>
+              {lesson.topic && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-semibold uppercase tracking-wide">
+                  {lesson.topic}{lesson.difficulty ? ` · ${lesson.difficulty}` : ''}
+                </span>
+              )}
               {streak >= 2 && (
                 <span className="streak-badge animate-fire">🔥 {streak} streak</span>
               )}
