@@ -162,7 +162,7 @@ const BattlesPage = () => {
             <div className="grid md:grid-cols-2 gap-6">
               {/* Quick Match */}
               <Card className="bg-gradient-to-br from-indigo-950/60 to-purple-950/40 border-indigo-700/30 overflow-hidden relative group hover:border-indigo-500/50 transition-all duration-300">
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
                     <span className="text-3xl">⚡</span>
@@ -180,7 +180,7 @@ const BattlesPage = () => {
                     <span>⏱️ 15s each</span>
                     <span>📊 ELO-based</span>
                   </div>
-                  {state.phase === "queuing" ? (
+                  {state.phase === "queuing" && state.queueMode === "quick_match" ? (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="h-4 w-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
@@ -207,7 +207,7 @@ const BattlesPage = () => {
 
               {/* Ranked */}
               <Card className="bg-gradient-to-br from-amber-950/60 to-red-950/40 border-amber-700/30 overflow-hidden relative group hover:border-amber-500/50 transition-all duration-300">
-                <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-red-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-red-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
                     <span className="text-3xl">🏅</span>
@@ -225,7 +225,7 @@ const BattlesPage = () => {
                     <span>⏱️ 15s each</span>
                     <span>⚡ Ranked</span>
                   </div>
-                  {state.phase === "queuing" ? (
+                  {state.phase === "queuing" && state.queueMode === "ranked" ? (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="h-4 w-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />

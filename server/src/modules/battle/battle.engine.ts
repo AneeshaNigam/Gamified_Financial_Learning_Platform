@@ -397,7 +397,8 @@ export class BattleEngine {
         p2.eloRatingBefore,
         result1,
         this.state.battleId,
-        eloFactor
+        eloFactor,
+        this.state.type
       );
 
       eloChanges.set(p1.userId, changes.player1);

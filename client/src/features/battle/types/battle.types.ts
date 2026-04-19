@@ -231,6 +231,7 @@ export interface ClientBattleState {
   roomCode: string | null;
   roomPlayers: { userId: string; name: string; isReady: boolean }[];
   // Queue state
+  queueMode: "quick_match" | "ranked" | null;
   queuePosition: number;
   queueEstimate: number;
 }
@@ -251,6 +252,7 @@ export const initialBattleState: ClientBattleState = {
   battleResult: null,
   roomCode: null,
   roomPlayers: [],
+  queueMode: null,
   queuePosition: 0,
   queueEstimate: 0,
 };

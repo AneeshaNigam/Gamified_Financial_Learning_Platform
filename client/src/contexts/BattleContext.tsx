@@ -42,6 +42,7 @@ type BattleAction =
   | { type: "ROOM_CREATED"; code: string; roomId: string }
   | { type: "ROOM_UPDATE"; payload: RoomUpdatePayload }
   | { type: "STATE_SYNC"; payload: BattleStateSyncPayload }
+  | { type: "SET_QUEUE_MODE"; mode: "quick_match" | "ranked" | null }
   | { type: "RESET" };
 
 /* ── Reducer ── */
@@ -53,6 +54,9 @@ function battleReducer(
   switch (action.type) {
     case "SET_PHASE":
       return { ...state, phase: action.phase };
+
+    case "SET_QUEUE_MODE":
+      return { ...state, queueMode: action.mode };
 
     case "QUEUE_STATUS":
       return {
@@ -291,6 +295,7 @@ export function BattleProvider({ children }: { children: ReactNode }) {
   const joinQueue = useCallback(
     (mode: "quick_match" | "ranked" = "quick_match") => {
       if (!socket?.connected) return;
+      dispatch({ type: "SET_QUEUE_MODE", mode });
       dispatch({ type: "SET_PHASE", phase: "queuing" });
       socket.emit("join_queue", { mode });
     },

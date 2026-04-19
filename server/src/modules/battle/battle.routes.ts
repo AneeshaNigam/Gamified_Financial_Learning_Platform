@@ -20,10 +20,11 @@ const router = Router();
 /* ── Battle History & Analytics ── */
 router.get('/history', authenticate, getBattleHistoryController);
 router.get('/analytics/me', authenticate, getBattleAnalyticsController);
-router.get('/:battleId', authenticate, getBattleDetailController);
-
 /* ── Battle Leaderboard ── */
 router.get('/leaderboard', getBattleLeaderboardController);
+
+/* ── Single Battle Detail (Dynamic) ── */
+router.get('/:battleId', authenticate, getBattleDetailController);
 
 /* ── Private Rooms (REST) ── */
 router.post('/rooms', authenticate, createRoomController);

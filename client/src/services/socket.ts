@@ -12,10 +12,12 @@ let socket: Socket | null = null;
 
 /**
  * Get or create the socket connection.
- * Authenticates using the JWT token from localStorage.
+ * Always returns the SAME socket instance (singleton).
+ * The socket handles its own reconnection via socket.io's built-in reconnect.
  */
 export function getSocket(): Socket {
-  if (socket?.connected) return socket;
+  // If we already have a socket instance (connected or reconnecting), reuse it
+  if (socket) return socket;
 
   const token = getToken();
   if (!token) {
@@ -51,4 +53,13 @@ export function disconnectSocket(): void {
  */
 export function isSocketConnected(): boolean {
   return socket?.connected ?? false;
+}
+
+/**
+ * Force a fresh socket connection (e.g., after token refresh).
+ * Disconnects the old socket and creates a new one.
+ */
+export function reconnectSocket(): Socket {
+  disconnectSocket();
+  return getSocket();
 }

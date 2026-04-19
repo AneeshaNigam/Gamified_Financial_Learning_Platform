@@ -44,7 +44,8 @@ export async function calculateEloChanges(
   player2Rating: number,
   player1Result: number, // 1 = win, 0.5 = draw, 0 = loss
   battleId: string,
-  eloFactor: number = 1 // reduction factor for forfeits
+  eloFactor: number = 1, // reduction factor for forfeits
+  battleType: 'quick_match' | 'ranked' | 'private_room' = 'ranked'
 ): Promise<{
   player1: { change: number; newRating: number };
   player2: { change: number; newRating: number };
@@ -58,8 +59,12 @@ export async function calculateEloChanges(
   const k1 = getKFactor(user1?.battleStats?.totalBattles ?? 0, player1Rating);
   const k2 = getKFactor(user2?.battleStats?.totalBattles ?? 0, player2Rating);
 
-  let change1 = calculateEloChange(player1Rating, player2Rating, player1Result, k1);
-  let change2 = calculateEloChange(player2Rating, player1Rating, 1 - player1Result, k2);
+  // Mode-specific K-factor scaling:
+  // Ranked = full impact, Quick Match = half impact, Private = quarter impact
+  const modeMultiplier = battleType === 'ranked' ? 1.0 : battleType === 'quick_match' ? 0.5 : 0.25;
+
+  let change1 = calculateEloChange(player1Rating, player2Rating, player1Result, k1 * modeMultiplier);
+  let change2 = calculateEloChange(player2Rating, player1Rating, 1 - player1Result, k2 * modeMultiplier);
 
   // Apply factor (e.g., reduced ELO change on forfeit)
   change1 = Math.round(change1 * eloFactor);

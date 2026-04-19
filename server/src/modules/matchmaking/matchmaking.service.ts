@@ -9,6 +9,7 @@ import {
   MatchmakingQueueEntry,
   MatchResult,
   MATCHMAKING_CONFIG,
+  getModeConfig,
 } from './matchmaking.types';
 import logger from '../../utils/logger';
 import crypto from 'crypto';
@@ -131,12 +132,13 @@ function computeMatchScore(
   candidate: MatchmakingQueueEntry,
   now: number
 ): number {
+  const cfg = getModeConfig(seeker.mode);
   const timeInQueue = now - seeker.joinedAt;
-  const relaxationPeriods = Math.max(0, timeInQueue - MATCHMAKING_CONFIG.STRICT_PERIOD_MS) / 5000;
-  const relaxation = 1 + relaxationPeriods * MATCHMAKING_CONFIG.RELAXATION_RATE;
+  const relaxationPeriods = Math.max(0, timeInQueue - cfg.strictPeriodMs) / 5000;
+  const relaxation = 1 + relaxationPeriods * cfg.relaxationRate;
 
-  const w = MATCHMAKING_CONFIG.WEIGHTS;
-  const t = MATCHMAKING_CONFIG.THRESHOLDS;
+  const w = cfg.weights;
+  const t = cfg.thresholds;
 
   // Level score (0 = exact match, lower = better)
   const levelDiff = Math.abs(seeker.level - candidate.level);
@@ -144,12 +146,18 @@ function computeMatchScore(
   if (levelDiff > levelThreshold + 2) return -1; // Too far apart
   const levelScore = levelDiff <= levelThreshold ? 1 : Math.max(0, 1 - (levelDiff - levelThreshold) / 3);
 
-  // Knowledge tier (binary match, relaxes over time)
-  const tierMatch = seeker.knowledgeLevel === candidate.knowledgeLevel;
-  const tierScore = tierMatch ? 1 : (relaxation > 1.5 ? 0.5 : 0);
-  if (!tierMatch && relaxation < 1.5) return -1; // Strict during initial period
+  // Knowledge tier
+  let tierScore: number;
+  if (w.KNOWLEDGE_TIER === 0) {
+    // Ranked mode: tier is irrelevant
+    tierScore = 1;
+  } else {
+    const tierMatch = seeker.knowledgeLevel === candidate.knowledgeLevel;
+    tierScore = tierMatch ? 1 : (relaxation > 1.5 ? 0.5 : 0);
+    if (cfg.requireTierMatch && !tierMatch && relaxation < 1.5) return -1;
+  }
 
-  // XP range (±20%, widens with time)
+  // XP range
   const xpRatio = t.XP_RATIO * relaxation;
   const seekerXp = Math.max(1, seeker.xp);
   const xpDiff = Math.abs(seeker.xp - candidate.xp) / seekerXp;
