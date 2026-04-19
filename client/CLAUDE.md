@@ -118,20 +118,21 @@ api.delete<T>(endpoint)
 - Use Sonner + shadcn Toaster for toast notifications
 - Import `toast` from `sonner` for programmatic toasts
 
-## Dynamic Lesson Engine (V2 — Client Side)
+## Learner Analytics & Adaptive Lesson Engine (V2 — Client Side)
 
-The `LessonPage.tsx` is now a **backend-driven** lesson engine. No hardcoded lesson data exists on the client.
+The `LessonPage.tsx` is now a **backend-driven**, adaptive lesson engine. No hardcoded lesson data exists on the client.
 
 ### Flow
 
-1. **Fetch**: `GET /api/learning/current` → receives current lesson with steps (MCQ answers stripped)
+1. **Fetch**: `GET /api/learning/current` → receives dynamically recommended lesson with steps (MCQ answers stripped, step telemetry initialized)
 2. **Step-by-step rendering**:
    - `info` steps → user reads content, presses Continue (earns XP)
-   - `mcq` steps → user selects answer → `POST /api/learning/submit` → shows feedback (correct/wrong + explanation)
-3. **Completion**: After last step → `POST /api/learning/complete` → next lesson auto-loads
+   - `mcq` steps → user selects answer → precise `timeTaken` tracking → `POST /api/learning/submit` → shows feedback (correct/wrong + explanation)
+3. **Completion**: After last step → `POST /api/learning/complete` → next adaptive lesson auto-loads
 
 ### Key Rules
 
-- **Never hardcode lesson content** — all content comes from the server
+- **Never hardcode lesson content** — all content comes from the server's adaptive engine
 - MCQ `correctAnswer` and `explanation` are NOT present in the initial fetch — only returned after submission
-- The client renders steps sequentially with gamification animations (XP popups, progress bars, confetti)
+- The client renders steps sequentially with gamification animations (XP popups, confetti) and dynamic **topic/difficulty badges**
+- Precise telemetry (e.g., `timeTaken` for MCQ) must be captured and sent to the server for learner analytics tracking

@@ -63,13 +63,15 @@ Each feature in `server/src/modules/<feature>/` has:
 - Theme: Dark/light/system via `next-themes` (key: `moneymaster-theme`)
 - Font: Nunito → Inter → system-ui → sans-serif
 
-## Lesson Engine (V2)
+## Learner Analytics & Adaptive Lesson Engine (V2)
 
-The platform uses a **dynamic step-based lesson engine**:
-- Lessons are stored in the `LessonV2` model with ordered `steps` (info cards + MCQ questions)
-- The server drives all lesson flow — no hardcoded lesson data on the client
-- Steps award XP incrementally; MCQ answers give partial XP even if wrong
-- Legacy slide-based lesson routes are kept for backward compatibility
+The platform uses an **adaptive, step-based lesson engine**:
+- **Adaptive Recommendations**: Server dynamically recommends lessons based on user accuracy and past topic performance (via `adaptive.service.ts`).
+- **LessonV2 Model**: Stores ordered `steps` (info cards + MCQ) with `topic` and `difficulty` metadata.
+- **Behavior Tracking**: `Progress` model captures detailed telemetry: XP, accuracy, response times (`timeTaken`), and topic-specific performance statistics.
+- The server drives all lesson flow — no hardcoded lesson data on the client.
+- Steps award XP incrementally; MCQ answers give partial XP even if wrong, factoring in telemetry on submission.
+- Legacy slide-based lesson routes are kept for backward compatibility.
 
 ## API Routes (All prefixed `/api`)
 
@@ -165,7 +167,7 @@ cd client && npm run build                  # → client/dist/
 6. **Zod on both sides** — Server uses v4, Client uses v3 (via react-hook-form resolvers)
 7. **No test framework** — no unit/integration tests currently in place
 8. **Gamification** — XP leveling, login streaks, achievements, virtual wallet, simulated stocks
-9. **Dynamic lesson engine (V2)** — step-based lessons (info + MCQ), server-driven flow, replaces hardcoded client slides
+9. **Adaptive lesson engine (V2)** — step-based lessons (info + MCQ), server-driven adaptive flow based on performance telemetry
 10. **Dual lesson systems** — Legacy slide-based routes kept for backward compatibility alongside V2 engine
 
 ## Things to Avoid
