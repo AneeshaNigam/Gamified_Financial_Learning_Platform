@@ -7,6 +7,7 @@ import stockRoutes from '../modules/stocks/stocks.routes';
 import achievementRoutes from '../modules/achievements/achievements.routes';
 import leaderboardRoutes from '../modules/leaderboard/leaderboard.routes';
 import testimonialsRoutes from '../modules/testimonials/testimonials.routes';
+import battleRoutes from '../modules/battle/battle.routes';
 
 const router = Router();
 
@@ -17,6 +18,6 @@ router.use('/stocks', stockRoutes);
 router.use('/achievements', achievementRoutes);
 router.use('/leaderboard', leaderboardRoutes);
 router.use('/testimonials', testimonialsRoutes);
+router.use('/battle', battleRoutes);
 
 export default router;
-
