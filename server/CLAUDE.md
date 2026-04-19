@@ -30,7 +30,7 @@ server/src/
 │   └── Testimonial.ts      # User testimonials
 ├── modules/                # Feature modules
 │   ├── auth/
-│   ├── learning/           # Contains both legacy and V2 lesson engine
+│   ├── learning/           # Contains legacy, adaptive V2 engine, and telemetry
 │   ├── wallet/
 │   ├── stocks/
 │   ├── achievements/
@@ -130,29 +130,27 @@ Always use `sendSuccess(res, data, message?, statusCode?)`:
 3. **Google OAuth**: Passport strategy → creates/links user → redirects to client with JWT in URL query
 4. **Forgot Password**: Email → SHA-256 hashed reset token on User doc (10-min expiry) → email link → reset
 
-## Dynamic Lesson Engine (V2)
+## Learner Analytics & Adaptive Lesson Engine (V2)
 
-The V2 lesson system replaces hardcoded client-side slides with a server-driven step engine.
+The V2 lesson system is an adaptive, server-driven step engine that replaces hardcoded client slides.
 
-### Model: `LessonV2` (`models/LessonV2.ts`)
+### Models: `LessonV2` & `Progress`
 
-- `order` (number) — global lesson sequence for auto-advancement
-- `moduleId` (number) — which module this lesson belongs to
-- `lessonId` (string) — unique within a module
+- `LessonV2` includes `topic` and `difficulty` metadata for adaptive recommendations.
+- `Progress` captures detailed Learner Analytics: XP, accuracy, response times (`timeTaken`), and topic-specific performance statistics.
+- `order`, `moduleId`, `lessonId`, `xpReward`, `lucreReward` are kept for sequence tracking and gamification rewards.
 - `steps[]` — array of `IInfoStep` or `IMcqStep` (discriminated union on `type`)
-- `xpReward` / `lucreReward` — bonus awarded on lesson completion
-- `source` — `'seed' | 'ai' | 'manual'` (for future AI-generated lessons)
 
 ### Step Types
 
-- **info**: Read-only content card with `content` (markdown-friendly) and optional `emoji`. Awards `xp` on view.
-- **mcq**: Multiple-choice question with `question`, `options[]`, `correctAnswer`, `explanation`. Awards full `xp` if correct, partial (25%) if wrong.
+- **info**: Read-only content card. Awards `xp` on view.
+- **mcq**: Multiple-choice question with `correctAnswer` and `explanation`. Tracks telemetry (`timeTaken`). Awards full `xp` if correct, partial (25%) if wrong.
 
 ### API Flow
 
-1. `GET /api/learning/current` — returns next uncompleted lesson (strips `correctAnswer` and `explanation` from MCQ steps)
-2. `POST /api/learning/submit` — evaluates MCQ answer, awards XP, returns feedback with correct answer
-3. `POST /api/learning/complete` — marks lesson done, awards bonus XP/lucre, returns next lesson
+1. `GET /api/learning/current` — `adaptive.service.ts` dynamically recommends the next lesson based on user accuracy and past topic performance (strips correct answers).
+2. `POST /api/learning/submit` — evaluates MCQ answer, processes `timeTaken` telemetry, updates Learner Analytics, awards XP, returns feedback.
+3. `POST /api/learning/complete` — marks lesson done, awards bonus rewards, triggers adaptive logic for next lesson.
 
 ### Seeding
 
