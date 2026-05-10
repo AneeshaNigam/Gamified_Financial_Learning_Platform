@@ -28,7 +28,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Eye, EyeOff, Lock } from "lucide-react";
+import { Eye, EyeOff, Lock, Volume2, VolumeX } from "lucide-react";
+import { useMascot } from "@/contexts/MascotContext";
+import Rupi from "@/components/mascot/Rupi";
 
 // Change Password Component
 function ChangePasswordForm() {
@@ -231,6 +233,71 @@ function ChangePasswordForm() {
   );
 }
 
+// Rupi & Sound Settings Component
+function RupiSoundSettings() {
+  const { isSoundEnabled, isMascotEnabled, soundVolume, toggleSound, toggleMascot, setVolume, playSound } = useMascot();
+
+  return (
+    <div className="space-y-5">
+      {/* Preview mascot */}
+      <div className="flex items-center justify-center py-2">
+        <Rupi state={isSoundEnabled ? 'happy' : 'sleeping'} size="lg" animate />
+      </div>
+
+      {/* Sound Effects Toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {isSoundEnabled ? <Volume2 className="h-5 w-5 text-primary" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
+          <div>
+            <Label>Sound Effects</Label>
+            <p className="text-sm text-muted-foreground">
+              Play sounds for answers, XP, and celebrations
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={isSoundEnabled}
+          onCheckedChange={toggleSound}
+        />
+      </div>
+
+      {/* Volume Slider */}
+      {isSoundEnabled && (
+        <div className="pl-8">
+          <Label className="text-sm mb-2 block">Volume: {Math.round(soundVolume * 100)}%</Label>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={soundVolume * 100}
+            onChange={(e) => setVolume(parseInt(e.target.value) / 100)}
+            onMouseUp={() => playSound('correct')}
+            onTouchEnd={() => playSound('correct')}
+            className="w-full accent-primary h-2 rounded-lg appearance-none bg-muted cursor-pointer"
+          />
+        </div>
+      )}
+
+      {/* Rupi Companion Toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-lg">🐷</span>
+          <div>
+            <Label>Rupi Companion</Label>
+            <p className="text-sm text-muted-foreground">
+              Show Rupi in the corner for tips & encouragement
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={isMascotEnabled}
+          onCheckedChange={toggleMascot}
+        />
+      </div>
+    </div>
+  );
+}
+
 
 export default function Settings() {
   const { user, updateUser, logout } = useAuth();
@@ -422,31 +489,8 @@ export default function Settings() {
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-xl font-bold mb-4">App Preferences</h2>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Sound Effects</Label>
-              <p className="text-sm text-muted-foreground">
-                Play sound effects
-              </p>
-            </div>
-            <Switch
-              checked={settings.soundEffects}
-              onCheckedChange={() => handleToggle("soundEffects")}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Animations</Label>
-              <p className="text-sm text-muted-foreground">Show animations</p>
-            </div>
-            <Switch
-              checked={settings.animations}
-              onCheckedChange={() => handleToggle("animations")}
-            />
-          </div>
-        </div>
+        <h2 className="text-xl font-bold mb-4">🎭 Rupi & Sound</h2>
+        <RupiSoundSettings />
       </Card>
 
       <Card className="p-6">

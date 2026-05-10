@@ -16,7 +16,9 @@ client/src/
 ├── contexts/
 │   ├── AuthContext.tsx      # Authentication state & actions
 │   ├── WalletContext.tsx    # Virtual wallet state
-│   └── ProgressContext.tsx  # Learning progress state
+│   ├── ProgressContext.tsx  # Learning progress state
+│   ├── SocketContext.tsx    # Socket.io client connection management
+│   └── BattleContext.tsx    # Battle state machine (queue, arena, results)
 ├── features/
 │   ├── auth/               # Auth feature components
 │   ├── learning/           # Learning feature components
@@ -34,14 +36,18 @@ client/src/
 │   ├── OAuthCallback.tsx
 │   ├── DashboardPage.tsx
 │   ├── LearningPage.tsx
-│   ├── LessonPage.tsx      # Dynamic V2 lesson engine (server-driven)
-│   ├── QuizPage.tsx        # Redesigned quiz UI
+│   ├── LessonPage.tsx          # Dynamic V2 lesson engine (server-driven)
+│   ├── QuizPage.tsx            # Redesigned quiz UI
 │   ├── WalletPage.tsx / AchievementsPage.tsx
-│   ├── LeaderboardPage.tsx / BattlesPage.tsx
+│   ├── LeaderboardPage.tsx
+│   ├── BattlesPage.tsx         # Battle lobby: Quick Match, Ranked, Private Room
+│   ├── BattleArenaPage.tsx     # Live battle UI (question, timer, opponent score)
+│   ├── BattleResultsPage.tsx   # Post-battle results: ELO change, XP, replay
 │   ├── ToolsPage.tsx / SettingsPage.tsx
 │   └── NotFound.tsx
 ├── services/
-│   └── api.ts              # Fetch wrapper with auth token injection
+│   ├── api.ts              # Fetch wrapper with auth token injection
+│   └── socket.ts           # Socket.io client instance (singleton)
 ├── constants/
 │   └── index.ts            # APP_NAME, API_BASE_URL, ROUTES
 ├── lib/
@@ -66,9 +72,9 @@ client/src/
 
 ### State Management
 
-- **Global state**: React Context API — `AuthContext`, `WalletContext`, `ProgressContext`
+- **Global state**: React Context API — `AuthContext`, `WalletContext`, `ProgressContext`, `SocketContext`, `BattleContext`
 - **Server state**: TanStack React Query v5 — handles caching, refetching, loading states
-- Never mix concerns — contexts manage auth/user state, Query manages API data
+- Never mix concerns — contexts manage auth/user/battle state, Query manages API data
 
 ### API Calls
 
@@ -84,11 +90,23 @@ api.delete<T>(endpoint)
 - Errors throw with the server's error message
 - Base URL comes from `VITE_API_URL` env var
 
+### Socket.io
+
+- Import the singleton socket from `@/services/socket.ts` — do **not** create multiple `io()` instances
+- Use `SocketContext` to access the connected socket and connection state in components
+- Use `BattleContext` for all battle-related socket events — it wraps all battle socket listeners and provides typed state
+- Socket connects automatically when the user is authenticated; disconnects on logout
+- JWT token is passed in `socket.auth.token` on handshake
+
 ### Routing
 
 - React Router v6 in `App.tsx`
 - Protected routes wrapped in `<ProtectedRoute>` — redirects to `/login` if unauthenticated
 - Route constants defined in `constants/index.ts`
+- Battle routes:
+  - `/battles` — lobby page (matchmaking, private rooms, history)
+  - `/battle/arena` — live battle arena (state passed via `BattleContext`)
+  - `/battle/results` — post-battle results page
 
 ### Page Components
 
@@ -136,3 +154,58 @@ The `LessonPage.tsx` is now a **backend-driven**, adaptive lesson engine. No har
 - MCQ `correctAnswer` and `explanation` are NOT present in the initial fetch — only returned after submission
 - The client renders steps sequentially with gamification animations (XP popups, confetti) and dynamic **topic/difficulty badges**
 - Precise telemetry (e.g., `timeTaken` for MCQ) must be captured and sent to the server for learner analytics tracking
+
+## Battle System (Client Side)
+
+### BattleContext (`contexts/BattleContext.tsx`)
+
+Central state machine for the entire battle flow. Manages:
+- Current battle state: `idle | queuing | matched | in_progress | completed`
+- Queue position and estimated wait time
+- Active battle data: roomId, battleId, opponent info, current question, timer, scores
+- Battle results for the results page
+
+Subscribe to all server events here — do **not** listen to socket events directly in page components.
+
+### Battle Pages
+
+**`BattlesPage.tsx`** — Battle Lobby
+- Quick Match: sends `queue_join` with `{mode: 'quick_match'}`, shows live queue position
+- Ranked: sends `queue_join` with `{mode: 'ranked'}`, shows ELO and estimated wait
+- Private Room: create (REST `POST /api/battle/rooms`) or join by code (REST `POST /api/battle/rooms/join`)
+- Shows recent battle history and current ELO rating
+
+**`BattleArenaPage.tsx`** — Live Battle
+- Reads battle state from `BattleContext` — do NOT re-fetch from server during battle
+- Renders current question from `question_start` event
+- Countdown timer per question (15s default)
+- Live opponent score display from `score_update` events
+- Sends `answer_submit` on selection; shows `answer_ack` response
+- Shows opponent disconnection overlay on `opponent_disconnected`
+- Sends `visibility_change` on `document.visibilityState` change (anti-cheat)
+
+**`BattleResultsPage.tsx`** — Post-Battle
+- Renders data from `battle_end` event payload (winner, scores, ELO changes, XP gained)
+- Shows per-question accuracy breakdown
+- ELO rating change visualization (+/- with color)
+- "Play Again" button: re-joins queue for the same mode
+
+### Socket Event Lifecycle
+
+```
+User clicks "Find Match"
+  → queue_join → queue_status (position updates)
+  → match_found → navigate to /battle/arena
+  → battle_start → question_start (q1)
+  → answer_submit → answer_ack → score_update
+  → question_start (q2) ... (repeat)
+  → battle_end → navigate to /battle/results
+```
+
+### Key Rules
+
+- Never navigate away from `/battle/arena` without calling `battle_forfeit` first
+- Always clean up socket listeners in `useEffect` return / context unmount
+- Battle state lives in `BattleContext` — do not duplicate it in local component state
+- Show `answer_ack.reason` to the user when answer is rejected (rate-limited or already answered)
+- The arena page must handle the case where the socket reconnects mid-battle (re-request battle state)

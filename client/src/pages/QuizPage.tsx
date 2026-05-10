@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Clock, ArrowRight, Sparkles } from "lucide-react";
+import { useMascot } from "@/contexts/MascotContext";
+import Rupi from "@/components/mascot/Rupi";
 
 // ── Questions ────────────────────────────────────────────────────────────────
 const generateQuizQuestions = (_moduleId: number) => [
@@ -113,8 +115,10 @@ const Quiz = () => {
   const [feedbackState, setFeedbackState] = useState<"idle" | "correct" | "wrong">("idle");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
-  const [coinsworthMsg, setCoinsworthMsg] = useState("You've got this! Think carefully. 🧠");
-  const [showCoinsworth, setShowCoinsworth] = useState(true);
+  const [rupiMsg, setRupiMsg] = useState("You've got this! Think carefully. 🧠");
+  const [rupiState, setRupiState] = useState<'idle' | 'happy' | 'celebrating' | 'thinking' | 'encouraging' | 'excited' | 'teaching' | 'shocked' | 'proud'>('thinking');
+  const [showRupi, setShowRupi] = useState(true);
+  const { playSound } = useMascot();
 
   const questions = generateQuizQuestions(parseInt(moduleId!));
 
@@ -145,12 +149,23 @@ const Quiz = () => {
       setXpTotal((x) => x + gained);
       setXpPopup(gained);
       setFeedbackState("correct");
-      setCoinsworthMsg(streak >= 2 ? `${streak + 1} in a row! You're on fire! 🔥` : "Correct! Well reasoned. 🎉");
+      playSound('correct');
+      playSound('xp_gain');
+      if (streak + 1 >= 3) {
+        setRupiState('celebrating');
+        setRupiMsg(`${streak + 1} in a row! You're on fire! 🔥`);
+        playSound('combo');
+      } else {
+        setRupiState('happy');
+        setRupiMsg("Correct! Well reasoned. 🎉");
+      }
     } else {
       setLives((l) => l - 1);
       setStreak(0);
       setFeedbackState("wrong");
-      setCoinsworthMsg("Almost! Read the explanation — it'll stick. 💡");
+      playSound('wrong');
+      setRupiState('encouraging');
+      setRupiMsg("Almost! Read the explanation — it'll stick. 💡");
       if (lives - 1 === 0) {
         setTimeout(() => handleComplete(), 2500);
       }
@@ -162,7 +177,8 @@ const Quiz = () => {
     setSelectedIndex(null);
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion((q) => q + 1);
-      setCoinsworthMsg("Next one! Take your time. 🧠");
+      setRupiState('thinking');
+      setRupiMsg("Next one! Take your time. 🧠");
     } else {
       handleComplete();
     }
@@ -202,7 +218,7 @@ const Quiz = () => {
               </div>
             ))}
           </div>
-          <button className="btn-primary-cta w-full" onClick={() => setStarted(true)}>
+          <button className="btn-primary-cta w-full" onClick={() => { setStarted(true); playSound('quiz_start'); }}>
             Start Quiz <ArrowRight className="inline ml-2 h-5 w-5" />
           </button>
         </Card>
@@ -317,21 +333,24 @@ const Quiz = () => {
           )}
         </Card>
 
-        {/* Coinsworth */}
+        {/* Rupi */}
         <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-2">
-          {showCoinsworth && (
-            <div className="coinsworth-bubble animate-scale-in">
+          {showRupi && (
+            <div className="rupi-speech-bubble animate-scale-in" style={{ maxWidth: 240 }}>
               <button
                 className="absolute top-1 right-2 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => setShowCoinsworth(false)}
+                onClick={() => setShowRupi(false)}
               >✕</button>
-              <p>{coinsworthMsg}</p>
+              <p className="pr-4 text-sm">{rupiMsg}</p>
             </div>
           )}
-          <button
-            className="text-4xl animate-coinsworth-bounce hover:scale-110 transition-transform"
-            onClick={() => setShowCoinsworth((s) => !s)}
-          >🪙</button>
+          <Rupi
+            state={rupiState}
+            size="lg"
+            animate
+            onClick={() => { setShowRupi(s => !s); playSound('mascot_pop'); }}
+            className="cursor-pointer hover:scale-110 transition-transform drop-shadow-lg"
+          />
         </div>
       </div>
     </div>

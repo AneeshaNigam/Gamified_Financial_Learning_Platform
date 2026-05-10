@@ -1,6 +1,6 @@
 /** @format */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWallet } from "@/contexts/WalletContext";
 import { useProgress } from "@/contexts/ProgressContext";
@@ -17,25 +17,40 @@ import {
   Sparkles,
 } from "lucide-react";
 import DashboardLayout from "@/layouts/DashboardLayout";
+import { useMascot } from "@/contexts/MascotContext";
+import Rupi from "@/components/mascot/Rupi";
 
 const Dashboard = () => {
   const { user } = useAuth();
   const { wallet, transactions } = useWallet();
   const { progress } = useProgress();
-  const [showCoinsworth, setShowCoinsworth] = useState(true);
+  const [showRupi, setShowRupi] = useState(true);
+  const { mascotState, message, isBubbleVisible, showMessage, playSound, triggerGreeting, triggerStreak } = useMascot();
+
+  // Greeting on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (streak >= 2) {
+        triggerStreak(streak);
+      } else {
+        triggerGreeting();
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const completionPercent = (progress.completedLessons.length / 15) * 100; // 5 modules x 3 lessons
   const displayXp = (user?.xp ?? 0) > 0 ? user?.xp : null;
   const streak = user?.currentStreak ?? 0;
 
-  // Dynamic Coinsworth greeting
-  const coinsworthGreeting = streak >= 5
+  // Dynamic Rupi greeting
+  const rupiGreeting = streak >= 5
     ? `${streak}-day streak! You're absolutely crushing it! 🔥`
     : streak >= 2
     ? `Nice — ${streak} days in a row! Keep the momentum! 💪`
     : progress.completedLessons.length === 0
-    ? "Welcome! Your financial journey starts with one lesson. Let's go! 🚀"
-    : "Good to see you back! Every session makes you smarter with money. 🧠";
+    ? "Welcome! Your financial journey starts here. Let's go! 🚀"
+    : "Good to see you back! Every session makes you smarter! 🧠";
 
   return (
     <DashboardLayout>
@@ -58,21 +73,33 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Coinsworth bubble */}
-          {showCoinsworth && (
-            <div className="flex flex-col items-end gap-1">
-              <div className="coinsworth-bubble" style={{ maxWidth: 240 }}>
+          {/* Rupi mascot */}
+          {showRupi && (
+            <div className="flex flex-col items-end gap-2">
+              <div className="rupi-speech-bubble animate-scale-in" style={{ maxWidth: 260 }}>
                 <button
                   className="absolute top-1 right-2 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowCoinsworth(false)}
+                  onClick={() => setShowRupi(false)}
                 >✕</button>
-                <p>{coinsworthGreeting}</p>
+                <p className="pr-4 text-sm">{rupiGreeting}</p>
               </div>
-              <span className="text-3xl animate-coinsworth-bounce cursor-pointer" onClick={() => setShowCoinsworth((s) => !s)}>🪙</span>
+              <Rupi
+                state={streak >= 5 ? 'celebrating' : streak >= 2 ? 'excited' : 'waving'}
+                size="lg"
+                animate
+                onClick={() => setShowRupi(s => !s)}
+                className="cursor-pointer hover:scale-110 transition-transform"
+              />
             </div>
           )}
-          {!showCoinsworth && (
-            <button className="text-3xl hover:scale-110 transition-transform" onClick={() => setShowCoinsworth(true)} title="Coinsworth says hi!">🪙</button>
+          {!showRupi && (
+            <button
+              className="hover:scale-110 transition-transform"
+              onClick={() => { setShowRupi(true); playSound('mascot_pop'); }}
+              title="Rupi says hi!"
+            >
+              <Rupi state="idle" size="md" animate />
+            </button>
           )}
         </div>
 

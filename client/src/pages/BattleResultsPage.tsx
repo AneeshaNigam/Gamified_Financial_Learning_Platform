@@ -1,5 +1,7 @@
 /** @format */
 
+import { useEffect } from "react";
+
 import { useNavigate } from "react-router-dom";
 import { useBattle } from "@/contexts/BattleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,11 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Swords, TrendingUp, Sparkles, Target, Clock, Zap } from "lucide-react";
+import { useMascot } from "@/contexts/MascotContext";
+import Rupi from "@/components/mascot/Rupi";
 
 const BattleResultsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { state, reset, joinQueue } = useBattle();
+  const { playSound } = useMascot();
   const result = state.battleResult;
 
   if (!result) {
@@ -32,6 +37,13 @@ const BattleResultsPage = () => {
   const isWin = result.result === "win";
   const isDraw = result.result === "draw";
   const isLoss = result.result === "loss";
+
+  // Play result sound
+  useEffect(() => {
+    if (isWin) playSound('battle_win');
+    else if (isLoss) playSound('battle_lose');
+    else playSound('notification');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resultConfig = {
     win: {
@@ -77,6 +89,9 @@ const BattleResultsPage = () => {
         {/* Hero Result */}
         <div className="text-center space-y-3 pt-4">
           <div className="text-7xl animate-bounce-in">{resultConfig.emoji}</div>
+          <div className="flex justify-center">
+            <Rupi state={isWin ? 'celebrating' : isDraw ? 'thinking' : 'encouraging'} size="lg" animate />
+          </div>
           <h1 className={`text-4xl md:text-5xl font-bold ${resultConfig.accentClass}`}>
             {resultConfig.title}
           </h1>

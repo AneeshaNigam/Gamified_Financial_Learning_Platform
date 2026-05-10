@@ -22,6 +22,8 @@ import { Progress } from "@/components/ui/progress";
 import { X, ArrowRight, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/services/api";
+import { useMascot } from "@/contexts/MascotContext";
+import Rupi from "@/components/mascot/Rupi";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -133,9 +135,11 @@ const LessonPage = () => {
   const [feedback, setFeedback] = useState<SubmitResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Coinsworth
-  const [coinsworthMsg, setCoinsworthMsg] = useState("Let's learn something real today! 🚀");
-  const [showCoinsworth, setShowCoinsworth] = useState(true);
+  // Mascot + sound integration
+  const { showMessage, playSound, triggerCorrect, triggerWrong, triggerCombo, triggerLessonComplete, triggerXpGain, setMascotState, mascotState } = useMascot();
+  const [rupiState, setRupiState] = useState<'idle' | 'happy' | 'celebrating' | 'thinking' | 'encouraging' | 'excited' | 'teaching' | 'shocked' | 'proud'>('teaching');
+  const [rupiMsg, setRupiMsg] = useState("Let's learn something real today! 🚀");
+  const [showRupi, setShowRupi] = useState(true);
 
   // Transition animation
   const [slideKey, setSlideKey] = useState(0);
@@ -189,7 +193,10 @@ const LessonPage = () => {
     const step = lesson.steps[stepIndex] as InfoStep;
     const gain = step.xp || 5;
     awardXp(gain);
-    setCoinsworthMsg("Great! Keep your momentum. 💪");
+    playSound('xp_gain');
+    setRupiState('happy');
+    setRupiMsg("Great! Keep your momentum. 💪");
+    setTimeout(() => setRupiState('teaching'), 2000);
 
     const isLast = stepIndex === lesson.steps.length - 1;
     if (isLast) {
@@ -220,10 +227,22 @@ const LessonPage = () => {
 
       if (result.isCorrect) {
         setStreak((s) => s + 1);
-        setCoinsworthMsg(streak >= 2 ? `${streak + 1} in a row! 🔥` : "Correct! Great thinking. 🎉");
+        const newStreak = streak + 1;
+        if (newStreak >= 3) {
+          setRupiState('celebrating');
+          setRupiMsg(`${newStreak} in a row! 🔥`);
+          playSound('combo');
+        } else {
+          setRupiState('happy');
+          setRupiMsg("Correct! Great thinking. 🎉");
+          playSound('correct');
+        }
+        playSound('xp_gain');
       } else {
         setStreak(0);
-        setCoinsworthMsg("Read the explanation — it really helps. 💡");
+        setRupiState('encouraging');
+        setRupiMsg("Read the explanation — it really helps. 💡");
+        playSound('wrong');
       }
 
       // Sync user XP in auth context
@@ -268,6 +287,7 @@ const LessonPage = () => {
       }
 
       toast.success(`✅ Lesson complete! Loading: ${result.nextLesson.title}`);
+      playSound('lesson_complete');
 
       // Seamlessly load next lesson
       setTimeout(() => {
@@ -281,7 +301,8 @@ const LessonPage = () => {
         setSelectedOption(null);
         setFeedback(null);
         setSlideKey((k) => k + 1);
-        setCoinsworthMsg("New lesson! Let's keep building your knowledge. 📚");
+        setRupiState('teaching');
+        setRupiMsg("New lesson! Let's keep building your knowledge. 📚");
       }, 1500);
     } catch (err: any) {
       toast.error(err.message || "Could not load next lesson");
@@ -509,26 +530,26 @@ const LessonPage = () => {
         </div>
       </div>
 
-      {/* Coinsworth character */}
+      {/* Rupi mascot */}
       <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-2">
-        {showCoinsworth && (
-          <div className="coinsworth-bubble animate-scale-in">
+        {showRupi && (
+          <div className="rupi-speech-bubble animate-scale-in" style={{ maxWidth: 240 }}>
             <button
               className="absolute top-1 right-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setShowCoinsworth(false)}
+              onClick={() => setShowRupi(false)}
             >
               ✕
             </button>
-            <p>{coinsworthMsg}</p>
+            <p className="pr-4 text-sm">{rupiMsg}</p>
           </div>
         )}
-        <button
-          className="text-4xl animate-coinsworth-bounce hover:scale-110 transition-transform"
-          onClick={() => setShowCoinsworth((s) => !s)}
-          title="Coinsworth"
-        >
-          🪙
-        </button>
+        <Rupi
+          state={rupiState}
+          size="lg"
+          animate
+          onClick={() => { setShowRupi((s) => !s); playSound('mascot_pop'); }}
+          className="cursor-pointer hover:scale-110 transition-transform drop-shadow-lg"
+        />
       </div>
     </div>
   );

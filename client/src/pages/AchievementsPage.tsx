@@ -6,6 +6,8 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Lock } from "lucide-react";
+import { useMascot } from "@/contexts/MascotContext";
+import Rupi from "@/components/mascot/Rupi";
 
 const Achievements = () => {
   const { progress } = useProgress();
@@ -22,6 +24,9 @@ const Achievements = () => {
           <p className="text-muted-foreground">
             Track your progress and unlock rewards
           </p>
+          <div className="mt-2">
+            <Rupi state={unlockedCount > 0 ? 'proud' : 'encouraging'} size="md" animate />
+          </div>
         </div>
 
         {/* Hero Stats */}
