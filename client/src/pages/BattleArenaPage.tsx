@@ -7,10 +7,12 @@ import { useBattleTimer } from "@/features/battle/hooks/useBattleTimer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useMascot } from "@/contexts/MascotContext";
 
 const BattleArenaPage = () => {
   const navigate = useNavigate();
   const { state, selectAnswer, submitAnswer, forfeit, reset } = useBattle();
+  const { playSound } = useMascot();
   const [showCountdown, setShowCountdown] = useState(true);
   const [countdown, setCountdown] = useState(3);
 
@@ -37,6 +39,7 @@ const BattleArenaPage = () => {
     if (state.phase === "countdown" || state.phase === "match_found") {
       setShowCountdown(true);
       setCountdown(3);
+      playSound('battle_start');
       const interval = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
@@ -44,12 +47,13 @@ const BattleArenaPage = () => {
             setShowCountdown(false);
             return 0;
           }
+          playSound('timer_tick');
           return prev - 1;
         });
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [state.phase]);
+  }, [state.phase, playSound]);
 
   // Auto-submit on answer select (lock in)
   useEffect(() => {

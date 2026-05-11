@@ -11,6 +11,7 @@ const stocks_routes_1 = __importDefault(require("../modules/stocks/stocks.routes
 const achievements_routes_1 = __importDefault(require("../modules/achievements/achievements.routes"));
 const leaderboard_routes_1 = __importDefault(require("../modules/leaderboard/leaderboard.routes"));
 const testimonials_routes_1 = __importDefault(require("../modules/testimonials/testimonials.routes"));
+const battle_routes_1 = __importDefault(require("../modules/battle/battle.routes"));
 const router = (0, express_1.Router)();
 router.use('/auth', auth_routes_1.default);
 router.use('/learning', learning_routes_1.default);
@@ -19,4 +20,5 @@ router.use('/stocks', stocks_routes_1.default);
 router.use('/achievements', achievements_routes_1.default);
 router.use('/leaderboard', leaderboard_routes_1.default);
 router.use('/testimonials', testimonials_routes_1.default);
+router.use('/battle', battle_routes_1.default);
 exports.default = router;

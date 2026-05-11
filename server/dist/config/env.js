@@ -11,7 +11,9 @@ const envSchema = zod_1.z.object({
     JWT_SECRET: zod_1.z.string().min(1, 'JWT_SECRET is required'),
     JWT_EXPIRES_IN: zod_1.z.string().default('7d'),
     CLIENT_URL: zod_1.z.string().optional(),
+    REDIS_URL: zod_1.z.string().optional().default('redis://localhost:6379'),
     BREVO_API_KEY: zod_1.z.string().optional(),
+    OPENAI_API_KEY: zod_1.z.string().optional(),
     GOOGLE_CLIENT_ID: zod_1.z.string().optional(),
     GOOGLE_CLIENT_SECRET: zod_1.z.string().optional(),
     GOOGLE_CALLBACK_URL: zod_1.z.string().optional().default('http://localhost:5000/api/auth/google/callback')

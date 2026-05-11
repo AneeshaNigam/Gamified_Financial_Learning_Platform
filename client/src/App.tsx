@@ -11,6 +11,9 @@ import { WalletProvider } from "@/contexts/WalletContext";
 import { ProgressProvider } from "@/contexts/ProgressContext";
 import { SocketProvider } from "@/contexts/SocketContext";
 import { BattleProvider } from "@/contexts/BattleContext";
+import { MascotProvider } from "@/contexts/MascotContext";
+import RupiCompanion from "@/components/mascot/RupiCompanion";
+import CelebrationOverlay from "@/components/mascot/CelebrationOverlay";
 import Landing from "@/pages/Landing";
 import Signup from "@/pages/Signup";
 import Login from "@/pages/Login";
@@ -50,8 +53,11 @@ const App = () => (
               <WalletProvider>
                 <ProgressProvider>
                   <BattleProvider>
+                    <MascotProvider>
                     <Toaster />
                     <Sonner />
+                    <RupiCompanion />
+                    <CelebrationOverlay />
                     <Routes>
                       <Route path="/" element={<Landing />} />
                       <Route path="/signup" element={<Signup />} />
@@ -160,6 +166,7 @@ const App = () => (
                       />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
+                    </MascotProvider>
                   </BattleProvider>
                 </ProgressProvider>
               </WalletProvider>

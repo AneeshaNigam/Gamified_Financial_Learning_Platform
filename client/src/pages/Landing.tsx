@@ -14,6 +14,8 @@ import {
   BarChart3,
 } from "lucide-react";
 import { API_BASE_URL } from "@/constants";
+import Rupi from "@/components/mascot/Rupi";
+import { soundEngine } from "@/lib/sounds";
 
 interface Testimonial {
   _id: string;
@@ -139,6 +141,17 @@ const Landing = () => {
           <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
             Master money management through interactive lessons, real-world scenarios, and a rewards system that keeps you coming back.
           </p>
+
+          {/* Rupi mascot greeting */}
+          <div className="flex justify-center">
+            <Rupi
+              state="waving"
+              size="xl"
+              animate
+              onClick={() => soundEngine.play('mascot_pop')}
+              className="cursor-pointer hover:scale-110 transition-transform drop-shadow-xl"
+            />
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link to="/signup">

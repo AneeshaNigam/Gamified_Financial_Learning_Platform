@@ -7,18 +7,21 @@ This file contains server-specific instructions. See the root `CLAUDE.md` for pr
 ```
 server/src/
 ├── app.ts                  # Express app setup (middleware, routes)
-├── server.ts               # HTTP server bootstrap
+├── server.ts               # HTTP server bootstrap + Socket.io init
 ├── index.ts                # Entry point (connects DB, starts server)
 ├── config/
 │   ├── env.ts              # Zod-validated environment variables
 │   ├── database.ts         # MongoDB connection
-│   └── passport.ts         # Google OAuth strategy
+│   ├── passport.ts         # Google OAuth strategy
+│   ├── redis.ts            # ioredis client + pub/sub clients for Socket.io adapter
+│   └── socket.ts           # Socket.io server init, Redis adapter, emitToUser/emitToBattle helpers
 ├── middleware/
 │   ├── auth.ts             # JWT authenticate middleware
 │   ├── validate.ts         # Zod validation middleware
-│   └── errorHandler.ts     # Global error handler + 404
+│   ├── errorHandler.ts     # Global error handler + 404
+│   └── socketAuth.ts       # JWT auth middleware for Socket.io connections
 ├── models/                 # Mongoose schemas & models
-│   ├── User.ts             # User with auth, XP, streaks
+│   ├── User.ts             # User: auth, XP, streaks, ELO, battleStats, learningProfile, presenceStatus
 │   ├── Module.ts           # Learning modules
 │   ├── Lesson.ts           # Lessons within modules (legacy slide-based)
 │   ├── LessonV2.ts         # Dynamic step-based lessons (info + MCQ)
@@ -27,26 +30,62 @@ server/src/
 │   ├── Wallet.ts           # Virtual currency wallet
 │   ├── Stock.ts            # Simulated stock data
 │   ├── Achievement.ts      # Achievement definitions
-│   └── Testimonial.ts      # User testimonials
+│   ├── Testimonial.ts      # User testimonials
+│   ├── Battle.ts           # Persisted battle record (players, questions, answers, ELO)
+│   ├── BattleRoom.ts       # Private room (6-char code, TTL expiry, status lifecycle)
+│   ├── QuestionBank.ts     # Financial literacy MCQ question bank
+│   └── RatingHistory.ts    # ELO change log per player per battle
 ├── modules/                # Feature modules
 │   ├── auth/
-│   ├── learning/           # Contains legacy, adaptive V2 engine, and telemetry
+│   ├── learning/           # Legacy, adaptive V2 engine, and telemetry
 │   ├── wallet/
 │   ├── stocks/
 │   ├── achievements/
 │   ├── leaderboard/
-│   └── testimonials/
+│   ├── testimonials/
+│   ├── battle/             # Battle engine, REST routes, Socket.io handlers
+│   │   ├── battle.controller.ts   # History, detail, analytics, leaderboard
+│   │   ├── battle.service.ts      # Battle queries and post-battle updates
+│   │   ├── battle.engine.ts       # In-memory BattleEngine class (timers, scoring, lifecycle)
+│   │   ├── battle.routes.ts       # REST routes
+│   │   ├── battle.schema.ts       # Zod schemas
+│   │   ├── battle.socket.ts       # Socket.io: answer_submit, forfeit, battle_ready
+│   │   └── battle.types.ts        # Shared battle types & SCORE_CONFIG
+│   ├── matchmaking/        # Queue management, algorithm, loop
+│   │   ├── matchmaking.service.ts # addToQueue, removeFromQueue, matchmaking loop
+│   │   ├── matchmaking.socket.ts  # queue_join / queue_leave socket handlers
+│   │   └── matchmaking.types.ts   # Queue entry types, MATCHMAKING_CONFIG, mode configs
+│   ├── room/               # Private room (REST + socket)
+│   │   ├── room.controller.ts     # Create / join room controllers
+│   │   ├── room.service.ts        # Room logic, battle initiation
+│   │   ├── room.schema.ts         # Zod schemas
+│   │   └── room.socket.ts         # room_join socket handler
+│   ├── rating/             # ELO calculation and history
+│   │   ├── rating.service.ts      # calculateEloChanges(), getUserRatingHistory()
+│   │   ├── rating.controller.ts   # GET /rating/history
+│   │   └── rating.routes.ts
+│   ├── presence/           # User presence (online/idle/in-battle/offline)
+│   │   ├── presence.service.ts    # updatePresence(), setUserOffline()
+│   │   └── presence.socket.ts     # heartbeat socket handler
+│   ├── anticheat/          # Anti-cheat layer for battle answers
+│   │   ├── anticheat.service.ts   # Rate limiting, answer lock, tab-switch, bot detection
+│   │   └── anticheat.middleware.ts # applyAntiCheatMiddleware() for socket interceptor
+│   └── adaptive/           # Adaptive question selection + LLM generation
+│       ├── adaptive.service.ts    # selectAdaptiveQuestions(), updateQuestionStats()
+│       ├── adaptive.profile.ts    # User topic-profile helpers
+│       └── adaptive.llm.ts        # OpenAI GPT-4o-mini question generation (optional)
 ├── routes/
 │   └── index.ts            # Central router (/api prefix)
 ├── data/                   # Seed data files
 ├── scripts/                # Database seeding scripts
 │   ├── seed.ts             # Legacy learning content
-│   ├── seedAll.ts          # All seed data (legacy)
+│   ├── seedAll.ts          # All seed data
 │   ├── seedLessonsV2.ts    # V2 dynamic step-based lessons
 │   ├── seedAchievements.ts
 │   ├── seedLessons.ts
 │   ├── seedModules.ts
 │   ├── seedQuizzes.ts
+│   ├── seedQuestionBank.ts # Question bank for battle system (financial literacy MCQs)
 │   └── seedTestimonials.ts
 ├── types/
 │   └── express.d.ts        # Express Request.user augmentation
@@ -68,6 +107,7 @@ Every feature lives in `modules/<feature>/` with exactly these files:
 - `<feature>.service.ts` — business logic (no Express types here)
 - `<feature>.routes.ts` — Express Router, applies `authenticate` and `validate` middleware
 - `<feature>.schema.ts` — Zod schemas for request validation
+- `<feature>.socket.ts` — Socket.io event handlers (battle system modules only)
 
 ### Error Handling
 
@@ -90,8 +130,8 @@ Always use `sendSuccess(res, data, message?, statusCode?)`:
 
 ### Model Naming
 
-- Mongoose models: PascalCase with `Model` suffix — `UserModel`, `WalletModel`, `LessonV2Model`
-- Interfaces: `I` prefix — `IUser`, `IUserDocument`, `ILessonV2`
+- Mongoose models: PascalCase with `Model` suffix — `UserModel`, `WalletModel`, `BattleModel`, `QuestionBankModel`
+- Interfaces: `I` prefix — `IUser`, `IUserDocument`, `IBattle`, `IQuestionBank`
 - Schema fields with sensitive data use `select: false`
 
 ### Authentication
@@ -99,6 +139,7 @@ Always use `sendSuccess(res, data, message?, statusCode?)`:
 - Use `authenticate` middleware on protected routes
 - Access user via `req.user` (typed as `IUserDocument` in `types/express.d.ts`)
 - JWT signed with `env.JWT_SECRET`, default expiry `7d`
+- Socket.io: use `socketAuthMiddleware` — attaches `socket.userId` and `socket.userName`
 
 ### Password Security
 
@@ -163,3 +204,81 @@ npm run seed:v2   # Runs scripts/seedLessonsV2.ts — clears and re-seeds all V2
 - Never send `correctAnswer` or `explanation` to the client before the user submits an answer
 - Legacy routes (`/lessons/:moduleId/:lessonId`) are preserved for backward compatibility
 - New lessons should use the V2 model, not the legacy `Lesson` model
+
+## Real-Time Quiz Battle System
+
+### Server Bootstrap (`server.ts`)
+
+Socket.io is initialized after the HTTP server is created:
+```ts
+const io = initializeSocketServer(server);
+registerPresenceHandlers(io);    // heartbeat → presence status
+registerMatchmakingHandlers(io); // queue_join / queue_leave
+registerRoomHandlers(io);        // room_join for private rooms
+registerSocketHandlers(io);      // answer_submit, forfeit, battle_ready
+```
+
+### Redis Usage
+
+- `matchmaking:queue` — sorted set (score = ELO × 1000 + level) for the matchmaking queue
+- `matchmaking:meta:<userId>` — hash of queue entry metadata (2-min TTL)
+- `matchmaking:active` — set of userIds currently being matched (prevents double-matching)
+- `anticheat:rate:<userId>` — 500ms NX key for answer rate limiting
+- `anticheat:answer:<roomId>:q<n>:u<userId>` — SETNX lock for answer replay prevention
+- `anticheat:tabswitch:<battleId>:<userId>` — list of tab-switch timestamps (1hr TTL)
+- Redis pub/sub (`getRedisPubSub()`) — Socket.io Redis adapter for cross-instance socket rooms
+
+### Matchmaking Algorithm
+
+1. Tick every 2 seconds (`MATCHMAKING_CONFIG.TICK_INTERVAL_MS`)
+2. For each unmatched queue entry, compute `computeMatchScore()` against all candidates in the same mode
+3. Scoring factors: level proximity, knowledge tier match, XP ratio, ELO difference — all weighted by mode config
+4. Time-based relaxation: skill window expands every 5s after the strict period
+5. On match: remove from queue → `sadd` to active set → `createMatchedBattle()` → emit `match_found` to both
+6. Max queue time: 2 minutes → `queue_timeout` emitted then removed
+
+### ELO Rating
+
+- Starting rating: 1200 (default for all new users)
+- K-factor: 40 (< 30 battles), 32 (standard), 16 (≥ 2400 rating)
+- Mode multipliers: Ranked = 1.0×, Quick Match = 0.5×, Private Room = 0.25×
+- Floor: 100 (defined by `SCORE_CONFIG.MIN_RATING`)
+- Rating history persisted to `RatingHistory` collection
+
+### Anti-Cheat
+
+Applied via `applyAntiCheatMiddleware(socket)` on each authenticated socket:
+- **Rate limit**: Max 1 answer per 500ms per user (Redis NX key)
+- **Replay prevention**: SETNX lock per `roomId:question:userId` — first write wins, duplicates rejected
+- **Tab switch tracking**: `visibility_change` events recorded to Redis list for analytics
+- **Bot detection** (`analyzeBotPatterns()`): checks response time variance (< 50ms std dev) and speed (> 50% answers < 200ms); returns suspicion score 0–1 with flag list
+
+### Battle Engine (`battle.engine.ts`)
+
+- Instantiated in-memory per battle during `createMatchedBattle()`
+- Manages question timer (15s default per question), sends next question on timer expiry or when both players have answered
+- Tracks `BattlePlayerState` per player: score, answers, response times
+- On completion: calls `battle.service.ts` to persist results, update user stats, trigger ELO calculation
+
+### Private Rooms (`room/`)
+
+- `POST /api/battle/rooms` — create room (generates 6-char uppercase code, 5-min TTL via MongoDB TTL index)
+- `POST /api/battle/rooms/join` — join by code (REST)
+- `room_join` socket event — player signals ready; when both ready, battle starts
+- Room status lifecycle: `waiting` → `ready` → `started` → `expired`
+
+### Adaptive Questions for Battles
+
+`selectAdaptiveQuestions(player1Id, player2Id, 10)`:
+1. Loads each player's `learningProfile.topicAccuracy` from `User` model
+2. Computes common topics → determines target difficulty from combined accuracy (>75% → hard, >50% → medium, else easy)
+3. Fetches: 60% from common topics, 20% from P1 weak topics, 20% from P2 weak topics
+4. Deduplicates, shuffles (Fisher-Yates), pads from any topic if needed
+
+### Question Bank Seeding
+
+```bash
+npm run seed:questions  # Runs scripts/seedQuestionBank.ts
+```
+
+Questions have topic (e.g., `budgeting`, `investing`, `savings`), difficulty (`easy|medium|hard`), options, correctAnswer, and per-use stats (timesUsed, avgCorrectRate, avgResponseTimeMs).
