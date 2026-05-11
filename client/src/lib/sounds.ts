@@ -80,6 +80,31 @@ class SoundEngine {
     localStorage.setItem('moneymaster-sound-volume', String(this._volume));
   }
 
+  // Voice synthesis for Rupi
+  speak(text: string) {
+    if (!this._enabled || typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    // Remove emojis for cleaner speech
+    const cleanText = text.replace(/[\u{1F600}-\u{1F6FF}\u{2600}-\u{26FF}\u{1F300}-\u{1F5FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}]/gu, '');
+
+    // Stop currently speaking audio
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.volume = this._volume;
+    utterance.pitch = 1.7; // Cute high-pitched voice for the piggy bank
+    utterance.rate = 1.15; // Slightly faster, energetic pace
+
+    // Try to find a good voice (preferably a female or local voice)
+    const voices = window.speechSynthesis.getVoices();
+    const femaleVoice = voices.find(v => v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('samantha'));
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  }
+
   // ── Utility helpers ──────────────────────────────────────────────
 
   private osc(type: OscillatorType, freq: number, start: number, dur: number, vol = 1) {

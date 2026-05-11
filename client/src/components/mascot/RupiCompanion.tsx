@@ -32,16 +32,16 @@ const RupiCompanion = () => {
   const idleTimer = useRef<ReturnType<typeof setTimeout>>();
   const lastPath = useRef(location.pathname);
 
-  // Don't render on non-dashboard pages (landing, auth pages, lesson, quiz, battle arena)
   const hiddenPaths = ['/', '/signup', '/login', '/forgot-password', '/verify-otp', '/oauth/callback'];
-  const isLessonOrBattle = location.pathname.startsWith('/lesson/') || location.pathname.startsWith('/battle/arena');
-  // Show on lesson/quiz pages with a different position class to not overlap the legacy Coinsworth
-  // Actually, we'll handle lesson/quiz in the page files themselves
-  if (hiddenPaths.includes(location.pathname) || isLessonOrBattle) return null;
-  if (!isVisible) return null;
+  const isLessonOrBattle = location.pathname.startsWith('/lesson/') || location.pathname.startsWith('/battle/arena') || location.pathname.startsWith('/quiz/');
+  const shouldHide = hiddenPaths.includes(location.pathname) || isLessonOrBattle || !isVisible;
 
   // Page-change greeting
   useEffect(() => {
+    if (shouldHide) {
+      lastPath.current = location.pathname;
+      return;
+    }
     if (location.pathname !== lastPath.current) {
       lastPath.current = location.pathname;
       const pageMsg = pageMessages[location.pathname];
@@ -52,10 +52,11 @@ const RupiCompanion = () => {
         }, 500);
       }
     }
-  }, [location.pathname, showMessage, playSound]);
+  }, [location.pathname, showMessage, playSound, shouldHide]);
 
   // Idle auto-message (after 45 seconds of no interaction)
   useEffect(() => {
+    if (shouldHide) return;
     if (idleTimer.current) clearTimeout(idleTimer.current);
     idleTimer.current = setTimeout(() => {
       if (!isBubbleVisible) {
@@ -63,7 +64,9 @@ const RupiCompanion = () => {
       }
     }, 45000);
     return () => { if (idleTimer.current) clearTimeout(idleTimer.current); };
-  }, [isBubbleVisible, triggerIdle, location.pathname]);
+  }, [isBubbleVisible, triggerIdle, location.pathname, shouldHide]);
+
+  if (shouldHide) return null;
 
   const handleRupiClick = () => {
     if (isBubbleVisible) {

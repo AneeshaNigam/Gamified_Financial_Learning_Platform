@@ -245,7 +245,7 @@ const Wallet = () => {
                     {Math.abs(txn.amount).toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    ₹{txn.balance.toFixed(2)}
+                    ₹{(txn.balance || 0).toFixed(2)}
                   </p>
                 </div>
               </div>

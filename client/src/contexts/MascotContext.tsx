@@ -103,6 +103,10 @@ export function MascotProvider({ children }: { children: ReactNode }) {
     setMessage(msg);
     setIsBubbleVisible(true);
 
+    if (isSoundEnabled) {
+      soundEngine.speak(msg);
+    }
+
     if (bubbleTimer.current) clearTimeout(bubbleTimer.current);
     bubbleTimer.current = setTimeout(() => {
       setIsBubbleVisible(false);
@@ -120,6 +124,9 @@ export function MascotProvider({ children }: { children: ReactNode }) {
     setIsBubbleVisible(false);
     setMessage(null);
     if (bubbleTimer.current) clearTimeout(bubbleTimer.current);
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
   }, []);
 
   // ── Trigger helpers ──────────────────────────────────────────────

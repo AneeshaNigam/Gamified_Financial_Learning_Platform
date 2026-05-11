@@ -106,6 +106,9 @@ function ChangePasswordForm() {
 
   return (
     <form onSubmit={handleChangePassword} className="space-y-4">
+      {/* Hidden username field for accessibility/autocomplete engines */}
+      <input type="text" name="username" autoComplete="username" className="hidden" aria-hidden="true" value="user" readOnly />
+      
       <div>
         <Label htmlFor="currentPassword">Current Password</Label>
         <div className="relative">
@@ -113,6 +116,7 @@ function ChangePasswordForm() {
           <Input
             id="currentPassword"
             type={showCurrentPassword ? "text" : "password"}
+            autoComplete="current-password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             placeholder="Enter current password"
@@ -140,6 +144,7 @@ function ChangePasswordForm() {
           <Input
             id="newPassword"
             type={showNewPassword ? "text" : "password"}
+            autoComplete="new-password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             placeholder="Enter new password"
@@ -206,6 +211,7 @@ function ChangePasswordForm() {
           <Input
             id="confirmPassword"
             type={showConfirmPassword ? "text" : "password"}
+            autoComplete="new-password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirm new password"

@@ -25,7 +25,7 @@ const sendEmail = async (options) => {
             },
             body: JSON.stringify({
                 sender: {
-                    name: 'FinLearn',
+                    name: 'MoneyMaster',
                     email: 'finnlearnofficial@gmail.com'
                 },
                 to: [{ email: options.to }],
@@ -53,7 +53,7 @@ const sendPasswordResetEmail = async (email, resetToken, userName) => {
     const resetUrl = `${env_1.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
     const text = `Hi ${userName},
 
-You requested to reset your password for your FinLearn account.
+You requested to reset your password for your MoneyMaster account.
 
 Click the link below to reset your password (valid for 10 minutes):
 ${resetUrl}
@@ -61,14 +61,14 @@ ${resetUrl}
 If you didn't request this, please ignore this email.
 
 Best regards,
-FinLearn Team`;
+MoneyMaster Team`;
     const html = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Reset Your Password - FinLearn</title>
+      <title>Reset Your Password - MoneyMaster</title>
     </head>
     <body style="margin: 0; padding: 0; background: linear-gradient(135deg, hsl(210 100% 56%) 0%, hsl(200 90% 50%) 100%); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
       <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; padding: 60px 20px;">
@@ -91,7 +91,7 @@ FinLearn Team`;
                 <tr>
                   <td style="padding: 48px 48px 32px 48px; text-align: center; background: linear-gradient(135deg, hsl(210 100% 56%) 0%, hsl(200 90% 50%) 100%);">
                     <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: hsl(0 0% 100%); letter-spacing: -0.02em;">
-                      FinLearn
+                      MoneyMaster
                     </h1>
                     <p style="margin: 8px 0 0 0; font-size: 14px; color: rgba(255, 255, 255, 0.9); font-weight: 500;">
                       Financial Learning Platform
@@ -180,7 +180,7 @@ FinLearn Team`;
                       <tr>
                         <td>
                           <p style="margin: 0 0 8px 0; font-size: 14px; color: hsl(220 40% 15%); font-weight: 600;">
-                            FinLearn Team
+                            MoneyMaster Team
                           </p>
                           <p style="margin: 0; font-size: 13px; color: hsl(215 20% 45%); line-height: 1.5;">
                             Empowering financial literacy through gamified learning
@@ -191,7 +191,7 @@ FinLearn Team`;
                         <td style="padding-top: 20px;">
                           <div style="height: 1px; background: hsl(210 30% 88%); margin-bottom: 16px;"></div>
                           <p style="margin: 0; font-size: 12px; color: hsl(215 20% 55%); line-height: 1.5;">
-                            © 2026 FinLearn. All rights reserved.
+                            © 2026 MoneyMaster. All rights reserved.
                           </p>
                         </td>
                       </tr>
@@ -219,7 +219,7 @@ FinLearn Team`;
   `;
     return (0, exports.sendEmail)({
         to: email,
-        subject: 'Reset Your Password - FinLearn',
+        subject: 'Reset Your Password - MoneyMaster',
         text,
         html
     });
@@ -231,14 +231,14 @@ const sendOtpEmail = async (email, otp, userName, flow = 'login') => {
     // Add a timestamp so the user can identify the latest email in their inbox
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' }) + ' UTC';
-    const text = `Hi ${userName},\n\nYour FinLearn verification code is: ${otp}\n\nThis code expires in 10 minutes. If you have multiple emails from us, please use THIS one (sent at ${timeStr}) and discard the others.\n\nIf you did not request this, please ignore this email.\n\nFinLearn Team`;
+    const text = `Hi ${userName},\n\nYour MoneyMaster verification code is: ${otp}\n\nThis code expires in 10 minutes. If you have multiple emails from us, please use THIS one (sent at ${timeStr}) and discard the others.\n\nIf you did not request this, please ignore this email.\n\nMoneyMaster Team`;
     const html = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${titleLabel} - FinLearn</title>
+      <title>${titleLabel} - MoneyMaster</title>
     </head>
     <body style="margin: 0; padding: 0; background: linear-gradient(135deg, hsl(210 100% 56%) 0%, hsl(200 90% 50%) 100%); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
       <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; padding: 60px 20px;">
@@ -254,7 +254,7 @@ const sendOtpEmail = async (email, otp, userName, flow = 'login') => {
                 <!-- Header -->
                 <tr>
                   <td style="padding: 48px 48px 32px 48px; text-align: center; background: linear-gradient(135deg, hsl(210 100% 56%) 0%, hsl(200 90% 50%) 100%);">
-                    <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: hsl(0 0% 100%); letter-spacing: -0.02em;">FinLearn</h1>
+                    <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: hsl(0 0% 100%); letter-spacing: -0.02em;">MoneyMaster</h1>
                     <p style="margin: 8px 0 0 0; font-size: 14px; color: rgba(255, 255, 255, 0.9); font-weight: 500;">Financial Learning Platform</p>
                   </td>
                 </tr>
@@ -286,7 +286,7 @@ const sendOtpEmail = async (email, otp, userName, flow = 'login') => {
                     <!-- Expiry Info -->
                     <div style="background: hsl(210 40% 95%); border-left: 3px solid hsl(210 100% 56%); border-radius: 8px; padding: 16px 20px; margin: 0 0 32px 0;">
                       <p style="margin: 0; font-size: 14px; color: hsl(220 40% 15%); line-height: 1.5;">
-                        <strong style="font-weight: 600;">Do not share this code</strong> with anyone. FinLearn will never ask for your code.
+                        <strong style="font-weight: 600;">Do not share this code</strong> with anyone. MoneyMaster will never ask for your code.
                       </p>
                     </div>
 
@@ -305,10 +305,10 @@ const sendOtpEmail = async (email, otp, userName, flow = 'login') => {
                 <!-- Footer -->
                 <tr>
                   <td style="background: hsl(210 40% 95%); padding: 32px 48px; border-top: 1px solid hsl(210 30% 88%);">
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: hsl(220 40% 15%); font-weight: 600;">FinLearn Team</p>
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: hsl(220 40% 15%); font-weight: 600;">MoneyMaster Team</p>
                     <p style="margin: 0 0 20px 0; font-size: 13px; color: hsl(215 20% 45%); line-height: 1.5;">Empowering financial literacy through gamified learning</p>
                     <div style="height: 1px; background: hsl(210 30% 88%); margin-bottom: 16px;"></div>
-                    <p style="margin: 0; font-size: 12px; color: hsl(215 20% 55%);">© 2026 FinLearn. All rights reserved.</p>
+                    <p style="margin: 0; font-size: 12px; color: hsl(215 20% 55%);">© 2026 MoneyMaster. All rights reserved.</p>
                   </td>
                 </tr>
               </table>
@@ -331,7 +331,7 @@ const sendOtpEmail = async (email, otp, userName, flow = 'login') => {
   `;
     return (0, exports.sendEmail)({
         to: email,
-        subject: `${titleLabel} - FinLearn (sent at ${timeStr})`,
+        subject: `${titleLabel} - MoneyMaster (sent at ${timeStr})`,
         text,
         html
     });

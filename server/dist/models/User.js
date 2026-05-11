@@ -7,6 +7,28 @@ exports.UserModel = void 0;
 const mongoose_1 = require("mongoose");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const crypto_1 = __importDefault(require("crypto"));
+/* ── Sub-schemas ── */
+const TopicAccuracySchema = new mongoose_1.Schema({
+    correct: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
+    avgResponseTimeMs: { type: Number, default: 0 },
+}, { _id: false });
+const BattleStatsSchema = new mongoose_1.Schema({
+    totalBattles: { type: Number, default: 0 },
+    wins: { type: Number, default: 0 },
+    losses: { type: Number, default: 0 },
+    draws: { type: Number, default: 0 },
+    winStreak: { type: Number, default: 0 },
+    bestWinStreak: { type: Number, default: 0 },
+    totalXpEarned: { type: Number, default: 0 },
+}, { _id: false });
+const LearningProfileSchema = new mongoose_1.Schema({
+    topicAccuracy: { type: Map, of: TopicAccuracySchema, default: () => new Map() },
+    strongTopics: [{ type: String }],
+    weakTopics: [{ type: String }],
+    lastUpdated: { type: Date, default: () => new Date() },
+}, { _id: false });
+/* ── Main Schema ── */
 const userSchema = new mongoose_1.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
@@ -26,7 +48,18 @@ const userSchema = new mongoose_1.Schema({
     resetPasswordToken: { type: String, select: false },
     resetPasswordExpires: { type: Date, select: false },
     loginOtp: { type: String, select: false },
-    loginOtpExpires: { type: Date, select: false }
+    loginOtpExpires: { type: Date, select: false },
+    // Battle system fields
+    eloRating: { type: Number, default: 1200 },
+    battleStats: { type: BattleStatsSchema, default: () => ({}) },
+    presenceStatus: {
+        type: String,
+        enum: ['online', 'idle', 'in-battle', 'offline'],
+        default: 'offline',
+    },
+    lastHeartbeat: { type: Date, default: () => new Date() },
+    activeBattleId: { type: String, default: null },
+    learningProfile: { type: LearningProfileSchema, default: () => ({}) },
 }, {
     timestamps: true,
     toJSON: {
@@ -36,6 +69,16 @@ const userSchema = new mongoose_1.Schema({
         }
     }
 });
+/* ── Indexes ── */
+// Battle leaderboard by ELO
+userSchema.index({ eloRating: -1 });
+// Battle wins leaderboard
+userSchema.index({ 'battleStats.wins': -1 });
+// Presence queries
+userSchema.index({ presenceStatus: 1 });
+// Matchmaking composite: find users at similar level/tier/rating
+userSchema.index({ level: 1, knowledgeLevel: 1, eloRating: 1 });
+/* ── Hooks ── */
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password') || !this.password)
         return next();
@@ -43,6 +86,7 @@ userSchema.pre('save', async function (next) {
     this.password = await bcryptjs_1.default.hash(this.password, salt);
     next();
 });
+/* ── Methods ── */
 userSchema.methods.comparePassword = function (candidate) {
     return bcryptjs_1.default.compare(candidate, this.password);
 };
