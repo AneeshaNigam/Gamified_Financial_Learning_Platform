@@ -59,6 +59,7 @@ export interface IUser {
 }
 
 export interface IUserDocument extends IUser, Document {
+  id: string;
   comparePassword(candidate: string): Promise<boolean>;
   createPasswordResetToken(): string;
   isResetTokenValid(): boolean;
